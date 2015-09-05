@@ -15,6 +15,7 @@ import (
 
 	"gopkg.in/gorp.v1"
 
+	"github.com/rolandshoemaker/gobservatory/core"
 	"github.com/rolandshoemaker/gobservatory/external/asnFinder"
 )
 
@@ -300,10 +301,16 @@ func fingerprint(cert *x509.Certificate) []byte {
 
 func main() {
 	obs := newObservatory("localhost", "80", "v4.whois.cymru.com", "43")
+	nssPool, err := core.PoolFromPEM("roots/nss_list.pem")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	obs.nssPool = nssPool
 	go func() {
 		obs.parseCerts()
 	}()
-	err := obs.apiServer.ListenAndServe()
+	err = obs.apiServer.ListenAndServe()
 	if err != nil {
 		fmt.Println(err)
 		return
