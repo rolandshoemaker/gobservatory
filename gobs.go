@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"gopkg.in/gorp.v1"
+	"github.com/rolandshoemaker/gobservatory/Godeps/_workspace/src/gopkg.in/gorp.v1"
 
 	"github.com/rolandshoemaker/gobservatory/core"
 	"github.com/rolandshoemaker/gobservatory/external/asnFinder"
@@ -146,15 +146,25 @@ type certificateChain struct {
 }
 
 func (o *observatory) addCertificates(certs []*x509.Certificate) error {
-	fmt.Println("ADDING CERTIFICATES!")
-	fmt.Println(certs)
+	fmt.Printf("ADDING [%d] CERTIFICATES!\n", len(certs))
+
+	for _, cert := range certs {
+		fmt.Printf("\t%s\n", cert.Subject.CommonName)
+		// Insert certificate...
+	}
+
+	// Generated and add chains
+	fmt.Println("GENERATING CHAINS!")
+	chainMap := make(map[string]certificateChain)
 	intermediatePool := x509.NewCertPool()
 	for _, cert := range certs {
 		intermediatePool.AddCert(cert)
 	}
-	chainMap := make(map[string]certificateChain)
+	nssValid := false
+	msValid := false
 	for _, cert := range certs {
-		// Check validity of certificate
+
+		// Check NSS validity of certificate
 		nssChains, err := cert.Verify(x509.VerifyOptions{
 			Intermediates: intermediatePool,
 			Roots:         o.nssPool,
@@ -163,20 +173,21 @@ func (o *observatory) addCertificates(certs []*x509.Certificate) error {
 		if err != nil {
 			return err
 		}
+		// Check MS validity of certificate
 		msChains, err := cert.Verify(x509.VerifyOptions{
 			Intermediates: intermediatePool,
 			Roots:         o.msPool,
-			KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 		})
 		if err != nil {
 			return err
 		}
-
-		nssValidity := len(nssChains) > 0
-		msValidity := len(msChains) > 0
-		validity := nssValidity || msValidity
-		transValidity := nssValidity && msValidity
-		fmt.Println(nssValidity, msValidity, validity, transValidity)
+		// This is, uh..., a little hacky :/
+		if !nssValid {
+			nssValid = len(nssChains) > 0
+		}
+		if !msValid {
+			msValid = len(msChains) > 0
+		}
 
 		// Add NSS chains
 		for _, chain := range nssChains {
@@ -214,15 +225,23 @@ func (o *observatory) addCertificates(certs []*x509.Certificate) error {
 			existingChain.MsValidity = true
 			chainMap[fmt.Sprintf("%x", fingerprint[:])] = existingChain
 		}
-		// Check for trans valid chains
-		for k, chain := range chainMap {
-			if chain.MsValidity && chain.NssValidity {
-				chain.TransValidity = true
-				chainMap[k] = chain
-			}
-		}
 
 		// Decompsoe certificate into all the different bits we want
+	}
+
+	var clientChainBytes []byte
+	for _, cert := range certs {
+		clientChainBytes = append(clientChainBytes, cert.Raw...)
+	}
+	clientChainFingerprint := sha256.Sum256(clientChainBytes)
+	if _, present := chainMap[fmt.Sprintf("%x", clientChainFingerprint)]; !present {
+		chainMap[fmt.Sprintf("%x", clientChainFingerprint)] = certificateChain{
+			Certs:         certs,
+			TransValidity: true,
+			Validity:      len(chainMap) > 0,
+			NssValidity:   nssValid,
+			MsValidity:    msValid,
+		}
 	}
 
 	// If no valid chains were produced add the current chain as invalid
@@ -245,8 +264,6 @@ func (o *observatory) addCertificates(certs []*x509.Certificate) error {
 	}
 
 	// Add all chains
-	fmt.Println("ADDING CHAINS!")
-	fmt.Println(chains)
 	o.addChains(chains)
 
 	return nil
@@ -261,14 +278,19 @@ func (o *observatory) addASN(asnNum int, ip net.IP) error {
 			return err
 		}
 		// Do something with asnName
-		fmt.Println(asnName, asnNum)
+		fmt.Printf("[ASN] Number: %d, Name: %s\n", asnName, asnNum)
 	}
 
 	return nil
 }
 
 func (o *observatory) addChains(chains []certificateChain) {
+	fmt.Printf("ADDING [%d] CHAINS!\n", len(chains))
+	for _, chain := range chains {
+		fmt.Printf("[CHAIN] Fingerprint: %x, Certs: %d\n", chain.Fingerprint, len(chain.Certs))
+		fmt.Printf("\t[VALIDITY] NSS: %v, MS: %v, Valid: %v, Trans-valid: %v\n", chain.NssValidity, chain.MsValidity, chain.Validity, chain.TransValidity)
 
+	}
 }
 
 type observatory struct {

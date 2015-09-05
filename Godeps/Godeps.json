@@ -1,0 +1,14 @@
+{
+	"ImportPath": "github.com/rolandshoemaker/gobservatory",
+	"GoVersion": "go1.5",
+	"Packages": [
+		"./..."
+	],
+	"Deps": [
+		{
+			"ImportPath": "gopkg.in/gorp.v1",
+			"Comment": "v1.7.1",
+			"Rev": "c87af80f3cc5036b55b83d77171e156791085e2e"
+		}
+	]
+}
