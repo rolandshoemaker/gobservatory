@@ -5,8 +5,6 @@ hey, I'm a masochist I guess...
 
 ## TODO
 
-Progress: 6/31
-
 - [ ] YAML config
 - [ ] [Database schema](https://github.com/rolandshoemaker/gobservatory/blob/master/schema.sql)
   - [ ] Create (gorp?) database models for everything
