@@ -102,8 +102,8 @@ task, and hey, I'm a masochist I guess...
 - [ ] Parse all the interesting stuff out of the certificates (basically just
   thanks Golang `^_^`)
   - [ ] [If available use OCSP to check if certificate is revoked](https://github.com/rolandshoemaker/gobservatory/blob/master/external/ocspChecker/ocsp.go)
-  - [ ] If available check CRL
+  - [ ] [If available check CRL](https://github.com/rolandshoemaker/gobservatory/blob/master/external/crlChecker/crl.go)
 - [x] Generate valid chains for different root pools
   - [x] Check trans-validity (this is much more confusing than I first thought,
-    I *think* my current implementation may work if the trans pool contain the
+    I *think* my current implementation may work if the trans pool contains the
     needed intermediates, need to check with Jeremey...)
