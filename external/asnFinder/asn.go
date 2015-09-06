@@ -16,8 +16,8 @@ type Finder struct {
 	whoisServer string
 }
 
-// NewFinder returns a newly initialized Finder
-func NewFinder(server string, port string, timeout, keepAlive time.Duration) *Finder {
+// New returns a newly initialized Finder
+func New(server string, port string, timeout, keepAlive time.Duration) *Finder {
 	return &Finder{
 		whoisServer: net.JoinHostPort(server, port),
 		d: &net.Dialer{

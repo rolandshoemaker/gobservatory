@@ -8,6 +8,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/rolandshoemaker/gobservatory/api/submission"
+	"github.com/rolandshoemaker/gobservatory/db"
 
 	"github.com/rolandshoemaker/gobservatory/core"
 	"github.com/rolandshoemaker/gobservatory/external/asnFinder"
@@ -51,7 +52,8 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	asnFinder := asnFinder.NewFinder(c.WHOIS.Host, c.WHOIS.Port, whoisTimeout, whoisKeepAlive)
+	asnFinder := asnFinder.New(c.WHOIS.Host, c.WHOIS.Port, whoisTimeout, whoisKeepAlive)
+	database := db.New()
 
 	nssPool, err := core.PoolFromPEM("roots/nss_list.pem")
 	if err != nil {
@@ -59,11 +61,11 @@ func main() {
 		return
 	}
 
-	obs := submission.NewAPI(nssPool, nil, c.SubmissionAPI.Host, c.SubmissionAPI.Port, asnFinder)
+	obs := submission.New(nssPool, nil, c.SubmissionAPI.Host, c.SubmissionAPI.Port, asnFinder, database)
 	go func() {
 		obs.ParseSubmissions()
 	}()
-	err = obs.Server.ListenAndServe()
+	err = obs.Serve()
 	if err != nil {
 		fmt.Println(err)
 		return
