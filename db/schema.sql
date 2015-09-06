@@ -69,6 +69,34 @@ CREATE TABLE `raw_certificates` (
   CONSTRAINT `fingerprint_raw_certificates` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
+-- RSA public keys
+--   Contains RSA public keys taken from a certificate linked by the `certificate_fingerprint`
+--   key.
+--
+
+CREATE TABLE `rsa_keys` (
+  `certificate_fingerprint` binary(36) NOT NULL,
+  `modulusSize` bigint(20) NOT NULL,
+  `modulus` bigint(?) NOT NULL,
+  `exponent` bigint(?) NOT NULL,
+  KEY `fingerprint_idx` (`certificate_fingerprint`),
+  CONSTRAINT `fingerprint_rsa_keys` FOREIGN KEY (`fingerprint_serial`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
+
+-- ECC public keys
+--   Contains ECC public keys taken from a certificate linked by the `certificate_fingerprint`
+--   key. Only P-224, P-256, P-384, and P-521 curve based keys are stored.
+--
+
+CREATE TABLE `ecc_keys` (
+  `certificate_fingerprint` binary(36) NOT NULL,
+  `curve` int NOT NULL,
+  `x` bigint(?) NOT NULL,
+  `y` bigint(?) NOT NULL,
+  KEY `fingerprint_idx` (`certificate_fingerprint`),
+  CONSTRAINT `fingerprint_ecc_keys` FOREIGN KEY (`fingerprint_serial`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
+
 -- DNS names
 --   Contains DNS names taken from a certificate linked by the `certificate_fingerprint`
 --   key. Also contains a bool to indicate if the name is a wildcard.

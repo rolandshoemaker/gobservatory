@@ -105,6 +105,8 @@ func (a *API) submissionHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ParseSubmissions starts a parsing worker that chews through API.submissions
+// and processes them, inserting the resulting information into the database
 func (a *API) ParseSubmissions() error {
 	for submission := range a.submissions {
 		// XXX: Debugging statements
@@ -296,14 +298,20 @@ func (a *API) addChains(chains []core.CertificateChain) {
 	}
 }
 
-func (a *API) Serve() error {
-	err := a.Server.ListenAndServe()
+// Serve starts the submission API either using HTTP or HTTPS
+func (a *API) Serve(certPath, keyPath string) (err error) {
+	if certPath != "" && keyPath != "" {
+		err = a.Server.ListenAndServeTLS(certPath, keyPath)
+	} else {
+		err = a.Server.ListenAndServe()
+	}
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
+// API defines the Observatory chain submission interface
 type API struct {
 	db        *db.Database
 	asnFinder *asnFinder.Finder
@@ -317,11 +325,12 @@ type API struct {
 	Server *http.Server
 }
 
-func New(nssPool, msPool *x509.CertPool, Server, apiPort string, asnFinder *asnFinder.Finder, db *db.Database) *API {
+// New creates a new submission API
+func New(nssPool, msPool *x509.CertPool, apiHost, apiPort string, asnFinder *asnFinder.Finder, db *db.Database) *API {
 	obs := &API{asnFinder: asnFinder, db: db}
 	m := http.NewServeMux()
 	m.HandleFunc("/submit_cert", obs.submissionHandler)
-	obs.Server = &http.Server{Addr: net.JoinHostPort(Server, apiPort), Handler: m}
+	obs.Server = &http.Server{Addr: net.JoinHostPort(apiHost, apiPort), Handler: m}
 	obs.submissions = make(chan submissionRequest)
 	return obs
 }

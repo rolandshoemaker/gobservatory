@@ -15,18 +15,18 @@ task, and hey, I'm a masochist I guess...
 
       submission api -> validity checker -> cert decomposer -> database <-> query api
 
-             ^                  ^               ^
-             |                  |               |
-             v                  v               v
+             ^                  ^                                  ^
+             |                  |                                  |
+             v                  v                                  v
 
-       * ocsp checker     * asn finder   periodic updater
+       * ocsp checker     * asn finder                      periodic updater
        * crl checker
-                                                ^
-                                                |
-                                                v
+                                                                   ^
+                                                                   |
+                                                                   v
 
-                                         * ocsp checker
-                                         * crl checker
+                                                            * ocsp checker
+                                                            * crl checker
 ```
 
 ## TODO
@@ -43,7 +43,6 @@ task, and hey, I'm a masochist I guess...
     - [ ] MS root list retriever/parser/loader (no idea where to get this, surely
       there is someone who has done this)
   - [ ] Dynamic reloading of root pools (RPC?)
-- [x] [Query for ASN number and name](https://github.com/rolandshoemaker/gobservatory/blob/master/external/asnFinder/asn.go)
 - [ ] Periodic OCSP revocation checker (Jeremy may already be working on this!)
 - [ ] Send StatsD metrics somewhere
 - [ ] Full test suite!
@@ -52,48 +51,58 @@ task, and hey, I'm a masochist I guess...
 
 ### Database
 
-- [ ] [Database schema](https://github.com/rolandshoemaker/gobservatory/blob/master/schema.sql)
+- [ ] [Database schema](https://github.com/rolandshoemaker/gobservatory/blob/master/db/schema.sql)
+  - [ ] **General index/foreign key/performance review** (ask pde/jeremy/jeff/jcj/etc
+    for advice on if the draft schema is viable)
+  - [ ] Report schema
   - [x] ASN schema
   - [x] Chain schema
+  - [x] OCSP/CRL certificate revocation schema
   - [ ] Various certificate schemas
     - [ ] Basic certificates (still needs work and probably more splitting and
       `SubjectKeyId` + `AuthorityKeyId` stuff...)
+    - [ ] Key usage (or should this be in the main table?)
     - [x] Raw certificates (DER)
     - [x] Names
     - [x] IPs
     - [x] Emails
     - [x] Subjects (Also split)
-    - [x] Subject extensions
-    - [x] x509v3 extensions
-    - [ ] RSA Keys
-    - [ ] ECC keys
-    - [ ] Key usage
+    - [x] Subject extensions (how to handle extension content?)
+    - [x] x509v3 extensions (how to handle extension content?)
+    - [x] RSA public keys
+    - [x] ECC public keys (only P-224, P-256, P-384, and P-521 curves)
     - [x] OCSP endpoints
     - [x] CRL endpoints
     - [ ] Policy OIDs
     - [x] DNS name constraints
   - [ ] Inverse index mapping schemas (names -> certs, some of the cert splitting
     seems to basically accomplish this for us)
-  - [ ] Reports schema
 - [ ] Create (gorp?) database models for everything
 - [ ] Add/Update methods for models
+  - [x] Add ASN
+  - [ ] Add chain
+  - [ ] Add (split) certificate
 
 ### [Submission API](https://github.com/rolandshoemaker/gobservatory/blob/master/api/submission/submission.go)
 
+- [x] Backwards compatibility with previous API (and therefore HTTPS Everywhere
+  and SSL Observatory Funnel)
 - [x] HTTP server
-- [ ] HTTPS server
+- [x] HTTPS server
 - [x] Submission handler
+- [x] [Query for ASN number and name if server IP available](https://github.com/rolandshoemaker/gobservatory/blob/master/external/asnFinder/asn.go)
 - [ ] Generate submission reports
-- [ ] Support all submission parameters
-- [ ] Actually do what all the parameters indicate (ASN/opt out/etc)
+- [ ] Support all submission parameters (ASN/opt out/etc)
+- [ ] Actually do what all the parameters indicate
 - [ ] Check that none of the certificates have been revoked before responding to client
 - [ ] Graceful shutdown
 
 ### Certificate/chain parsing
 
-- [ ] Parse all the interesting stuff out of the certificates
+- [ ] Parse all the interesting stuff out of the certificates (basically just
+  thanks Golang `^_^`)
   - [ ] [If available use OCSP to check if certificate is revoked](https://github.com/rolandshoemaker/gobservatory/blob/master/external/ocspChecker/ocsp.go)
-  - [ ] If available check CRL (?)
+  - [ ] If available check CRL
 - [x] Generate valid chains for different root pools
   - [x] Check trans-validity (this is much more confusing than I first thought,
     I *think* my current implementation may work if the trans pool contain the
