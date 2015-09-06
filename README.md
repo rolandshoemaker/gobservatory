@@ -27,7 +27,7 @@ hey, I'm a masochist I guess...
   - [ ] If available check CRL (?)
   - [ ] Insert all the goodies into the various tables (or update them or do nothing)
 - [x] Process valid chains for different root pools
-  - [x] Check trans-validity
+  - [ ] Check trans-validity (this is much more confusing than I first thought, I *think* my current implementation may work if the root lists contain the needed intermediates, need to check with Jeremey...)
   - [ ] Insert chains into the database
 - [x] [Query for ASN number and name](https://github.com/rolandshoemaker/gobservatory/blob/master/external/asnFinder/asn.go)
   - [ ] Insert ASN stuff into the database
