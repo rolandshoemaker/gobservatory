@@ -7,6 +7,11 @@ hey, I'm a masochist I guess...
 
 - [ ] YAML config
 - [ ] [Database schema](https://github.com/rolandshoemaker/gobservatory/blob/master/schema.sql)
+  - [x] ASN schema
+  - [x] Chain schema
+  - [ ] Split certificate schemas
+  - [ ] Inverse index mapping schemas (names -> certs) etc
+  - [ ] Reports schema
   - [ ] Create (gorp?) database models for everything
 - [ ] Submission API
   - [x] HTTP server
