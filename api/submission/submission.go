@@ -1,4 +1,4 @@
-package main
+package submission
 
 import (
 	"crypto/sha256"
@@ -13,19 +13,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/rolandshoemaker/gobservatory/Godeps/_workspace/src/gopkg.in/gorp.v1"
-
 	"github.com/rolandshoemaker/gobservatory/core"
 	"github.com/rolandshoemaker/gobservatory/external/asnFinder"
+	"gopkg.in/gorp.v1"
 )
-
-type rawSubmissionRequest struct {
-	Certlist         []string `json:"certlist"`
-	ServerIP         string   `json:"server_ip"`
-	Domain           string   `json:"domain"`
-	ASN              int      `json:"client_asn"`
-	ChainFingerprint string   `json:"chain_fp"`
-}
 
 type submissionRequest struct {
 	Certs            []*x509.Certificate
@@ -41,7 +32,7 @@ type revocationDescription struct {
 	Reason string `json:"revocationReason"`
 }
 
-func (o *observatory) revoked(fingerprint []byte) (bool, string) {
+func (a *API) revoked(fingerprint []byte) (bool, string) {
 	return false, ""
 }
 
@@ -77,7 +68,7 @@ func formToRequest(args url.Values) (sr submissionRequest, err error) {
 	return
 }
 
-func (o *observatory) submissionHandler(w http.ResponseWriter, r *http.Request) {
+func (a *API) submissionHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("REQUEST!")
 	err := r.ParseForm()
 	if err != nil {
@@ -93,7 +84,7 @@ func (o *observatory) submissionHandler(w http.ResponseWriter, r *http.Request) 
 	// Check if cert has been revoked
 	var revocationInfo []revocationDescription
 	for _, c := range sr.Certs {
-		if revoked, reason := o.revoked(fingerprint(c)); revoked {
+		if revoked, reason := a.revoked(core.Fingerprint(c)); revoked {
 			// Send message to client but don't skip submission
 			revocationInfo = append(revocationInfo, revocationDescription{
 				Serial: serialToString(c.SerialNumber),
@@ -103,7 +94,7 @@ func (o *observatory) submissionHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Add submission to channel for workers to process
-	o.submissions <- sr
+	a.submissions <- sr
 
 	if len(revocationInfo) > 0 {
 		revokedJSON, err := json.Marshal(revocationInfo)
@@ -118,15 +109,15 @@ func (o *observatory) submissionHandler(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-func (o *observatory) parseCerts() error {
-	for submission := range o.submissions {
+func (a *API) ParseSubmissions() error {
+	for submission := range a.submissions {
 		fmt.Println("PARSING SUBMISSION!")
-		err := o.addCertificates(submission.Certs)
+		err := a.addCertificates(submission.Certs)
 		if err != nil {
 			// Log error don't return method so we can try to get everything in...
 			fmt.Println(err)
 		}
-		err = o.addASN(submission.ASN, submission.ServerIP)
+		err = a.addASN(submission.ASN, submission.ServerIP)
 		if err != nil {
 			// Log error don't return method so we can try to get everything in
 			fmt.Println(err)
@@ -145,7 +136,7 @@ type certificateChain struct {
 	Validity      bool
 }
 
-func (o *observatory) addCertificate(cert *x509.Certificate, nssValid, msValid bool) error {
+func (a *API) addCertificate(cert *x509.Certificate, nssValid, msValid bool) error {
 	// Decompsoe certificate into all the different bits we want
 
 	// Insert bits into database
@@ -153,7 +144,7 @@ func (o *observatory) addCertificate(cert *x509.Certificate, nssValid, msValid b
 	return nil
 }
 
-func (o *observatory) generateChains(certs []*x509.Certificate) []certificateChain {
+func (a *API) generateChains(certs []*x509.Certificate) []certificateChain {
 	// Generated and add chains
 	fmt.Println("GENERATING CHAINS!")
 	chainMap := make(map[string]certificateChain)
@@ -167,21 +158,20 @@ func (o *observatory) generateChains(certs []*x509.Certificate) []certificateCha
 		// Check NSS validity of certificate
 		nssChains, err := cert.Verify(x509.VerifyOptions{
 			Intermediates: intermediatePool,
-			Roots:         o.nssPool,
+			Roots:         a.nssPool,
 			KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 		})
 		if err != nil {
 			fmt.Println("NSS --", err)
-			// return err
 		}
 		// Check MS validity of certificate
 		msChains, err := cert.Verify(x509.VerifyOptions{
 			Intermediates: intermediatePool,
-			Roots:         o.msPool,
+			Roots:         a.msPool,
+			KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 		})
 		if err != nil {
 			fmt.Println("MS --", err)
-			// return err
 		}
 		// XXX: This is, uh..., a little hacky :/
 		if !nssValid {
@@ -228,69 +218,70 @@ func (o *observatory) generateChains(certs []*x509.Certificate) []certificateCha
 			chainMap[fmt.Sprintf("%x", fingerprint[:])] = existingChain
 		}
 
-		err = o.addCertificate(cert, nssValid, msValid)
+		err = a.addCertificate(cert, nssValid, msValid)
 		if err != nil {
 			fmt.Println(err)
 		}
 	}
 
-	var clientChainBytes []byte
-	for _, cert := range certs {
-		clientChainBytes = append(clientChainBytes, cert.Raw...)
-	}
-	clientChainFingerprint := sha256.Sum256(clientChainBytes)
-	if _, present := chainMap[fmt.Sprintf("%x", clientChainFingerprint)]; !present {
-		chainMap[fmt.Sprintf("%x", clientChainFingerprint)] = certificateChain{
-			Certs:         certs,
-			Fingerprint:   clientChainFingerprint[:],
-			TransValidity: true,
-			Validity:      len(chainMap) > 0,
-			NssValidity:   nssValid,
-			MsValidity:    msValid,
-		}
-	}
-
-	// If no valid chains were produced add the current chain as invalid
-	var chains []certificateChain
+	// If no valid chains were produced check for trans-validity or add the chain
+	// as invalid.
 	if len(chainMap) == 0 {
+		trans := false
+		// Check for trans-validity
+		transChains, err := certs[0].Verify(x509.VerifyOptions{
+			Intermediates: intermediatePool,
+			Roots:         a.transPool,
+		})
+		if err != nil {
+			fmt.Println(err)
+		}
+		if len(transChains) > 0 {
+			trans = true
+		} else if err != nil {
+			fmt.Println("TRANS --", err)
+		}
+
+		// Generate fingerprint and return
 		var chainBytes []byte
 		for _, cert := range certs {
 			chainBytes = append(chainBytes, cert.Raw...)
 		}
 		fingerprint := sha256.Sum256(chainBytes)
-		chains = append(chains, certificateChain{
-			Certs:       certs,
-			Fingerprint: fingerprint[:],
-			Validity:    false,
-		})
-	} else {
-		for _, chain := range chainMap {
-			chains = append(chains, chain)
-		}
+		return []certificateChain{certificateChain{
+			Certs:         certs,
+			Fingerprint:   fingerprint[:],
+			Validity:      trans,
+			TransValidity: trans,
+		}}
+	}
+	var chains []certificateChain
+	for _, chain := range chainMap {
+		chains = append(chains, chain)
 	}
 	return chains
 }
 
-func (o *observatory) addCertificates(certs []*x509.Certificate) error {
+func (a *API) addCertificates(certs []*x509.Certificate) error {
 	fmt.Printf("ADDING [%d] CERTIFICATES!\n", len(certs))
 
 	for _, cert := range certs {
 		fmt.Printf("\t%s\n", cert.Subject.CommonName)
 	}
 
-	chains := o.generateChains(certs)
+	chains := a.generateChains(certs)
 
 	// Add all chains
-	o.addChains(chains)
+	a.addChains(chains)
 
 	return nil
 }
 
-func (o *observatory) addASN(asnNum int, ip net.IP) error {
+func (a *API) addASN(asnNum int, ip net.IP) error {
 	fmt.Println("ADDING ASN!")
 	switch asnNum {
 	case -2:
-		asnName, asnNum, err := o.asnFinder.GetASN(ip)
+		asnName, asnNum, err := a.asnFinder.GetASN(ip)
 		if err != nil {
 			return err
 		}
@@ -301,7 +292,7 @@ func (o *observatory) addASN(asnNum int, ip net.IP) error {
 	return nil
 }
 
-func (o *observatory) addChains(chains []certificateChain) {
+func (a *API) addChains(chains []certificateChain) {
 	fmt.Printf("ADDING [%d] CHAINS!\n", len(chains))
 	for _, chain := range chains {
 		fmt.Printf("[CHAIN] Fingerprint: %x, Certs: %d\n", chain.Fingerprint, len(chain.Certs))
@@ -310,48 +301,25 @@ func (o *observatory) addChains(chains []certificateChain) {
 	}
 }
 
-type observatory struct {
+type API struct {
 	dbMap *gorp.DbMap
 
 	nssPool   *x509.CertPool
 	msPool    *x509.CertPool
-	unionPool *x509.CertPool
+	transPool *x509.CertPool
 
 	asnFinder *asnFinder.Finder
 
 	submissions chan submissionRequest
 
-	apiServer *http.Server
+	Server *http.Server
 }
 
-func newObservatory(apiServer, apiPort, whoisServer, whoisPort string) *observatory {
-	obs := &observatory{}
+func NewAPI(nssPool, msPool *x509.CertPool, Server, apiPort string, asnFinder *asnFinder.Finder) *API {
+	obs := &API{asnFinder: asnFinder}
 	m := http.NewServeMux()
 	m.HandleFunc("/submit_cert", obs.submissionHandler)
-	obs.apiServer = &http.Server{Addr: net.JoinHostPort(apiServer, apiPort), Handler: m}
-	obs.asnFinder = asnFinder.NewFinder(whoisServer, whoisPort)
+	obs.Server = &http.Server{Addr: net.JoinHostPort(Server, apiPort), Handler: m}
 	obs.submissions = make(chan submissionRequest)
 	return obs
-}
-
-func fingerprint(cert *x509.Certificate) []byte {
-	return nil
-}
-
-func main() {
-	obs := newObservatory("localhost", "80", "v4.whois.cymru.com", "43")
-	nssPool, err := core.PoolFromPEM("roots/nss_list.pem")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	obs.nssPool = nssPool
-	go func() {
-		obs.parseCerts()
-	}()
-	err = obs.apiServer.ListenAndServe()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
 }

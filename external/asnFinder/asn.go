@@ -17,12 +17,12 @@ type Finder struct {
 }
 
 // NewFinder returns a newly initialized Finder
-func NewFinder(server string, port string) *Finder {
+func NewFinder(server string, port string, timeout, keepAlive time.Duration) *Finder {
 	return &Finder{
 		whoisServer: net.JoinHostPort(server, port),
 		d: &net.Dialer{
-			KeepAlive: 30 * time.Second,
-			Timeout:   10 * time.Second,
+			Timeout:   timeout,
+			KeepAlive: keepAlive,
 		},
 	}
 }
