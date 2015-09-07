@@ -119,7 +119,7 @@ func (a *API) ParseSubmissions() error {
 			// Log error don't return method so we can try to get everything in
 			fmt.Println(err)
 		}
-		err = a.addCertificates(submission.Certs, asnNum)
+		err = a.addCertificates(submission.Certs, asnNum, submission.ServerIP)
 		if err != nil {
 			// Log error don't return method so we can try to get everything in...
 			fmt.Println(err)
@@ -207,25 +207,48 @@ func (a *API) generateChainMeta(certs []*x509.Certificate) (db.CertificateChainM
 	return chain, nssValid || msValid
 }
 
-func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certificate, valid, leaf bool, asnNum int, now time.Time) error {
+func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certificate, valid, leaf bool, asnNum int, now time.Time, serverIP net.IP) error {
 	// Check if certificate has already been added, if so no need to do work intensive
 	// decomposition
 	fingerprint := core.Fingerprint(cert)
 
 	if exists, err := a.db.CertificateExists(fingerprint); err == nil && !exists {
 		// Decompsoe certificate into all the different bits we want
+		err = a.db.AddCertificate(&db.Certificate{
+			Fingerprint:      fingerprint,
+			Valid:            valid,
+			CertVersion:      uint8(cert.Version),
+			Root:             cert.IsCA,
+			BasicConstraints: cert.BasicConstraintsValid,
+			MaxPathLen:       cert.MaxPathLen,
+			MaxPathLenZero:   cert.MaxPathLenZero,
+			SignatureAlg:     uint8(cert.SignatureAlgorithm),
+			Signature:        cert.Signature,
+			NotBefore:        cert.NotBefore,
+			NotAfter:         cert.NotAfter,
+			Revoked:          false, // XXX: Without doing OCSP/CRL checks this'll have to do for now
+		})
+		if err != nil {
+			return err
+		}
 
-		// Actually, you know, add it
+		err = a.db.AddRawCertificate(&db.RawCertificate{
+			CertificateFingerprint: fingerprint,
+			DER: cert.Raw,
+		})
+		if err != nil {
+			// Continue
+			fmt.Println(err)
+		}
 	} else if err != nil {
-		// Log err but continue with submission report?
-		fmt.Println(err)
+		return err
 	}
 
 	// Add report
 	return a.db.AddReport(&db.Report{
-		// Source: ,
-		// ServerIP: ,
-		// Domain: ,
+		Source:                 0,  // XXX: fix this...
+		Domain:                 "", // XXX: fix this...
+		ServerIP:               serverIP.String(),
 		CertificateFingerprint: fingerprint,
 		ChainFingerprint:       chainMeta.Fingerprint,
 		Leaf:                   leaf,
@@ -234,7 +257,7 @@ func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certi
 	})
 }
 
-func (a *API) addCertificates(certs []*x509.Certificate, asnNum int) error {
+func (a *API) addCertificates(certs []*x509.Certificate, asnNum int, serverIP net.IP) error {
 	// XXX: Debugging statements
 	fmt.Printf("ADDING [%d] CERTIFICATES!\n", len(certs))
 
@@ -243,7 +266,7 @@ func (a *API) addCertificates(certs []*x509.Certificate, asnNum int) error {
 
 	now := time.Now()
 	for i, cert := range certs {
-		err := a.addCertificate(chainMeta, cert, valid, (i == 0), asnNum, now)
+		err := a.addCertificate(chainMeta, cert, valid, (i == 0), asnNum, now, serverIP)
 		if err != nil {
 			// Log but don't break
 			fmt.Println(err)

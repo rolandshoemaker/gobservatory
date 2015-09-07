@@ -57,13 +57,14 @@ CREATE TABLE `certificates` (
   `root` tinyint(1) NOT NULL,
   `basic_constraints` tinyint(1) NOT NULL,
   `name_constraints_critical` tinyint(1) NOT NULL,
-  `max_path_len` tinyint(1) NOT NULL,
+  `max_path_len` int NOT NULL,
   `max_path_zero` tinyint(1) NOT NULL,
   `signature_alg` tinyint(1) NOT NULL,
   `signature` blob NOT NULL,
   `not_before` datetime NOT NULL,
   `not_after` datetime NOT NULL,
   `revoked` tinyint(1) NOT NULL,
+  `LockCol` int NOT NULL,
   PRIMARY KEY (`fingerprint`)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
@@ -340,16 +341,14 @@ CREATE TABLE `policy_identifiers` (
 CREATE TABLE `reports` (
   `source` tinyint(1) NOT NULL,
   `certificate_fingerprint` binary(32) NOT NULL,
-  `leaf` tinyint(1) NOT NULL,
   `chain_fingerprint` binary(32) NOT NULL,
+  `leaf` tinyint(1) NOT NULL,
   `server_ip` varchar(256) DEFAULT NULL,
   `domain` varchar(256) NOT NULL,
   `asn_number` int(11) NOT NULL,
   `submitted` datetime NOT NULL,
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   KEY `chain_fingerprint_idx` (`chain_fingerprint`),
-  KEY `asn_idx` (`asn_number`),
   CONSTRAINT `certificate_fingerprint_reports` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION,
-  CONSTRAINT `chain_fingerprint_reports` FOREIGN KEY (`chain_fingerprint`) REFERENCES `chains` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION,
-  CONSTRAINT `asn_reports` FOREIGN KEY (`asn_number`) REFERENCES `asns` (`number`) ON DELETE CASCADE ON UPDATE NO ACTION
+  CONSTRAINT `chain_fingerprint_reports` FOREIGN KEY (`chain_fingerprint`) REFERENCES `chains` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 )

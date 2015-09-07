@@ -100,6 +100,8 @@ task, and hey, I'm a masochist I guess...
   - [x] Add ASN
   - [x] Add chain
   - [ ] Add (split) certificate
+    - [x] Basic section
+    - [ ] Everything else...
   - [x] Add submission report
 
 ### [Submission API](https://github.com/rolandshoemaker/gobservatory/blob/master/api/submission/submission.go)

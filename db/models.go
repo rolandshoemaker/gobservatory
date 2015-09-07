@@ -2,7 +2,6 @@ package db
 
 import (
 	"math/big"
-	"net"
 	"time"
 )
 
@@ -37,17 +36,19 @@ type RevokedCertificate struct {
 type Certificate struct {
 	Fingerprint             []byte    `db:"fingerprint"`
 	Valid                   bool      `db:"valid"`
-	Version                 uint8     `db:"version"`
+	CertVersion             uint8     `db:"version"`
 	Root                    bool      `db:"root"`
 	BasicConstraints        bool      `db:"basic_constraints"`
 	NameConstraintsCritical bool      `db:"name_constraints_critical"`
-	MaxPathLen              uint8     `db:"max_path_len"`
-	MaxPathLenZero          bool      `db:"max_path_len_zero"`
+	MaxPathLen              int       `db:"max_path_len"`
+	MaxPathLenZero          bool      `db:"max_path_zero"`
 	SignatureAlg            uint8     `db:"signature_alg"`
 	Signature               []byte    `db:"signature"`
 	NotBefore               time.Time `db:"not_before"`
 	NotAfter                time.Time `db:"not_after"`
 	Revoked                 bool      `db:"revoked"`
+
+	LockCol int
 }
 
 // RawCertificate describes the raw form of a submitted certificate
@@ -102,7 +103,7 @@ type DNSName struct {
 // IPAddress describes a IP address taken from a submitted certificate
 type IPAddress struct {
 	CertificateFingerprint []byte `db:"certificate_fingerprint"`
-	IP                     net.IP `db:"ip"`
+	IP                     string `db:"ip"`
 	AddressType            uint8  `db:"address_type"`
 }
 
@@ -187,7 +188,7 @@ type Report struct {
 	CertificateFingerprint []byte    `db:"certificate_fingerprint"`
 	ChainFingerprint       []byte    `db:"chain_fingerprint"`
 	Leaf                   bool      `db:"leaf"`
-	ServerIP               net.IP    `db:"server_ip"`
+	ServerIP               string    `db:"server_ip"`
 	Domain                 string    `db:"domain"`
 	ASNNumber              int       `db:"asn_number"`
 	Submitted              time.Time `db:"submitted"`

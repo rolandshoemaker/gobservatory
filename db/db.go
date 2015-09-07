@@ -25,9 +25,16 @@ func New() (*Database, error) {
 	if err = db.Ping(); err != nil {
 		return nil, err
 	}
-	dbmap := &gorp.DbMap{Db: db, Dialect: gorp.SqliteDialect{}}
+	dbmap := &gorp.DbMap{Db: db, Dialect: gorp.MySQLDialect{Engine: "InnoDB", Encoding: "UTF8"}}
 	dbmap.AddTableWithName(RevokedCertificate{}, "revoked_certificates")
-	return &Database{m: &gorp.DbMap{Db: db, Dialect: gorp.SqliteDialect{}}}, nil
+	dbmap.AddTableWithName(Report{}, "reports")
+	dbmap.AddTableWithName(Certificate{}, "certificates")
+	dbmap.AddTableWithName(RawCertificate{}, "raw_certificates")
+	// XXX: DEBUG
+	// dbmap.TraceOn("SQL", log.New(os.Stdout, "[SQL] ", log.Flags()))
+	return &Database{
+		m: dbmap,
+	}, nil
 }
 
 // AddASN inserts or updates a ASN in the database
@@ -110,4 +117,16 @@ func (db *Database) CertificateExists(fingerprint []byte) (bool, error) {
 		return false, err
 	}
 	return count > 0, err
+}
+
+// AddCertificate adds a basic certificate outline that everything else links
+// back to
+func (db *Database) AddCertificate(cert *Certificate) error {
+	return db.m.Insert(cert)
+}
+
+// AddRawCertificate adds a basic certificate outline that everything else links
+// back to
+func (db *Database) AddRawCertificate(rawCert *RawCertificate) error {
+	return db.m.Insert(rawCert)
 }
