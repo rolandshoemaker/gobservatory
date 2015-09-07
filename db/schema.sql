@@ -332,3 +332,21 @@ CREATE TABLE `policy_identifiers` (
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_policy_identifiers` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
+
+-- Reports
+--   Contains submission reports for each certificate in a submitted chain
+--
+
+CREATE TABLE `reports` (
+  `source` varchar(256) NOT NULL,
+  `certificate_fingerprint` binary(32) NOT NULL,
+  `leaf` tinyint(1) NOT NULL,
+  `chain_fingerprint` binary(32) NOT NULL,
+  `server_ip` varchar(256) DEFAULT NULL,
+  `domain` varchar(256) NOT NULL,
+  `submitted` datetime NOT NULL,
+  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
+  KEY `chain_fingerprint_idx` (`chain_fingerprint`),
+  CONSTRAINT `certificate_fingerprint_reports` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
+  CONSTRAINT `chain_fingerprint_reports` FOREIGN KEY (`chain_fingerprint`) REFERENCES `chains` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
+)

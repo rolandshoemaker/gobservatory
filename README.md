@@ -55,13 +55,12 @@ task, and hey, I'm a masochist I guess...
 - [ ] [Database schema](https://github.com/rolandshoemaker/gobservatory/blob/master/db/schema.sql)
   - [ ] **General index/foreign key/performance review** (ask pde/jeremy/jeff/jcj/etc
     for advice on if the draft schema is viable)
-  - [ ] Report schema
+  - [x] Report schema
   - [x] ASN schema
   - [x] Chain schema
   - [x] OCSP/CRL certificate revocation schema
   - [ ] Various certificate schemas
-    - [ ] Basic certificates (still needs work and probably more splitting and
-      `SubjectKeyId` + `AuthorityKeyId` stuff...)
+    - [ ] Basic certificates (still needs work and probably more splitting stuff out...)
     - [x] Key usage
     - [x] Raw certificates (DER)
     - [x] Subject key identifier
@@ -85,8 +84,8 @@ task, and hey, I'm a masochist I guess...
       - [ ] Organizational units
       - [ ] Localities
       - [ ] Provinces
-    - [x] Subject extensions (how to handle extension content?)
-    - [x] x509v3 extensions (how to handle extension content?)
+    - [x] Subject extensions
+    - [x] x509v3 extensions
     - [x] RSA public keys
     - [x] ECC public keys (only P-224, P-256, P-384, and P-521 curves)
     - [x] OCSP endpoints
@@ -98,8 +97,9 @@ task, and hey, I'm a masochist I guess...
 - [ ] Create (gorp?) database models for everything
 - [ ] Add/Update methods for models
   - [x] Add ASN
-  - [ ] Add chain
+  - [x] Add chain
   - [ ] Add (split) certificate
+  - [ ] Add submission report
 
 ### [Submission API](https://github.com/rolandshoemaker/gobservatory/blob/master/api/submission/submission.go)
 

@@ -14,3 +14,13 @@ type RevokedCertificate struct {
 	ByOCSP                 bool   `db:"by_ocsp"`
 	ByCRL                  bool   `db:"by_crl"`
 }
+
+// CertificateChain describes a certificate chain and it's validity properties
+type CertificateChain struct {
+	Certs         int
+	Fingerprint   []byte
+	NssValidity   bool
+	MsValidity    bool
+	TransValidity bool
+	Validity      bool
+}

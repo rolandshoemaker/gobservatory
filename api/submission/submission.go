@@ -126,10 +126,10 @@ func (a *API) ParseSubmissions() error {
 	return nil
 }
 
-func (a *API) generateChains(certs []*x509.Certificate) ([]core.CertificateChain, bool) {
+func (a *API) generateChains(certs []*x509.Certificate) ([]db.CertificateChain, bool) {
 	// XXX: Debugging statements
 	fmt.Println("GENERATING CHAINS!")
-	chainMap := make(map[string]core.CertificateChain)
+	chainMap := make(map[string]db.CertificateChain)
 	intermediatePool := x509.NewCertPool()
 	for _, cert := range certs {
 		intermediatePool.AddCert(cert)
@@ -173,11 +173,11 @@ func (a *API) generateChains(certs []*x509.Certificate) ([]core.CertificateChain
 			}
 			fingerprint := sha256.Sum256(chainBytes)
 			var present bool
-			var existingChain core.CertificateChain
+			var existingChain db.CertificateChain
 			existingChain, present = chainMap[fmt.Sprintf("%x", fingerprint[:])]
 			if !present {
-				existingChain = core.CertificateChain{Fingerprint: fingerprint[:]}
-				existingChain.Certs = chain
+				existingChain = db.CertificateChain{Fingerprint: fingerprint[:]}
+				existingChain.Certs = len(chain)
 				existingChain.Validity = true
 			}
 			existingChain.NssValidity = true
@@ -191,11 +191,11 @@ func (a *API) generateChains(certs []*x509.Certificate) ([]core.CertificateChain
 			}
 			fingerprint := sha256.Sum256(chainBytes)
 			var present bool
-			var existingChain core.CertificateChain
+			var existingChain db.CertificateChain
 			existingChain, present = chainMap[fmt.Sprintf("%x", fingerprint[:])]
 			if !present {
-				existingChain = core.CertificateChain{Fingerprint: fingerprint[:]}
-				existingChain.Certs = chain
+				existingChain = db.CertificateChain{Fingerprint: fingerprint[:]}
+				existingChain.Certs = len(chain)
 				existingChain.Validity = true
 			}
 			existingChain.MsValidity = true
@@ -228,14 +228,14 @@ func (a *API) generateChains(certs []*x509.Certificate) ([]core.CertificateChain
 			chainBytes = append(chainBytes, cert.Raw...)
 		}
 		fingerprint := sha256.Sum256(chainBytes)
-		return []core.CertificateChain{core.CertificateChain{
-			Certs:         certs,
+		return []db.CertificateChain{db.CertificateChain{
+			Certs:         len(certs),
 			Fingerprint:   fingerprint[:],
 			Validity:      trans,
 			TransValidity: trans,
 		}}, true
 	}
-	var chains []core.CertificateChain
+	var chains []db.CertificateChain
 	for _, chain := range chainMap {
 		chains = append(chains, chain)
 	}
@@ -284,11 +284,11 @@ func (a *API) addASN(asnFlag int, ip net.IP) error {
 	return nil
 }
 
-func (a *API) addChains(chains []core.CertificateChain) {
+func (a *API) addChains(chains []db.CertificateChain) {
 	fmt.Printf("ADDING [%d] CHAINS!\n", len(chains))
 	for _, chain := range chains {
 		// XXX: Debugging statements
-		fmt.Printf("[CHAIN] Fingerprint: %x, Certs: %d\n", chain.Fingerprint, len(chain.Certs))
+		fmt.Printf("[CHAIN] Fingerprint: %x, Certs: %d\n", chain.Fingerprint, chain.Certs)
 		fmt.Printf("\t[VALIDITY] NSS: %v, MS: %v, Valid: %v, Trans-valid: %v\n", chain.NssValidity, chain.MsValidity, chain.Validity, chain.TransValidity)
 		err := a.db.AddChain(chain)
 		if err != nil {

@@ -24,16 +24,6 @@ var RevocationReasons = map[int]string{
 	10: "aAcompromise",
 }
 
-// CertificateChain describes a certificate chain and it's validity properties
-type CertificateChain struct {
-	Certs         []*x509.Certificate
-	Fingerprint   []byte
-	NssValidity   bool
-	MsValidity    bool
-	TransValidity bool
-	Validity      bool
-}
-
 // ServerConfig provides a simple reusable config most servers need
 type ServerConfig struct {
 	Host string `yaml:"host"`
