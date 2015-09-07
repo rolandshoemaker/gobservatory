@@ -1,5 +1,7 @@
 # `gobservatory`
 
+![](https://i.imgur.com/RFMFgWU.jpg)
+
 A Go re-write of the SSL Observatory, because Go rules and is perfect for this
 task, and hey, I'm a masochist I guess...
 
@@ -49,7 +51,7 @@ task, and hey, I'm a masochist I guess...
 - [ ] Periodic OCSP revocation checker (Jeremy may already be working on this!)
 - [ ] Send StatsD metrics somewhere
 - [ ] Full test suite!
-- [ ] Create tool to translate/seed new schema from old
+- [ ] Create tool to translate/seed new schema from old database
 - [ ] Compare `gobservatory` performance to Python Observatory... (was it actually
   worth it?)
 
@@ -79,14 +81,6 @@ task, and hey, I'm a masochist I guess...
       - [x] Organizational units
       - [x] Localities
       - [x] Provinces
-    - [ ] Issuer subjects (?)
-      - [ ] Serial
-      - [ ] Common names
-      - [ ] Countries
-      - [ ] Organizations
-      - [ ] Organizational units
-      - [ ] Localities
-      - [ ] Provinces
     - [x] Subject extensions
     - [x] x509v3 extensions
     - [x] RSA public keys
