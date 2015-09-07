@@ -34,6 +34,8 @@ task, and hey, I'm a masochist I guess...
 
 ### Random
 
+- [ ] Switch from SHA 256 to old weird fingerprinting method in order to back-compatible
+  so we can seed the new schema from the old database
 - [x] YAML config
 - [ ] Root pool retreival/loading tools
   - [x] Basic load from PEM method
@@ -123,7 +125,6 @@ task, and hey, I'm a masochist I guess...
 
 - [ ] Parse all the interesting stuff out of the certificates (basically just
   thanks Golang `^_^`)
-  - [ ] Comply with schemas above
   - [ ] [If available use OCSP to check if certificate is revoked](https://github.com/rolandshoemaker/gobservatory/blob/master/external/ocspChecker/ocsp.go)
   - [ ] [If available check CRL](https://github.com/rolandshoemaker/gobservatory/blob/master/external/crlChecker/crl.go)
 - [x] Generate valid chains for different root pools
