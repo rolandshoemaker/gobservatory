@@ -101,6 +101,7 @@ task, and hey, I'm a masochist I guess...
   - [x] Add chain
   - [ ] Add (split) certificate
     - [x] Basic section
+    - [x] Raw certificate
     - [ ] Everything else...
   - [x] Add submission report
 
