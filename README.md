@@ -14,7 +14,7 @@ task, and hey, I'm a masochist I guess...
                                |                  |
                                v                  v
 
-      submission api -> validity checker -> meta generator -> database <-> query api
+   <-> submission api -> validity checker -> meta generator -> database <-> query api
 
              ^                                                    ^
              |                                                    |
@@ -22,7 +22,7 @@ task, and hey, I'm a masochist I guess...
 
        * ocsp checker                                      periodic updater
        * crl checker
-                                                                  ^
+       * database (revocation checking)                           ^
                                                                   |
                                                                   v
 
@@ -48,7 +48,8 @@ task, and hey, I'm a masochist I guess...
 - [ ] Send StatsD metrics somewhere
 - [ ] Full test suite!
 - [ ] Create tool to translate/seed new schema from old
-- [ ] Compare `gobservatory` performance to Python Observatory
+- [ ] Compare `gobservatory` performance to Python Observatory... (was it actually
+  worth it?)
 
 ### Database
 
@@ -94,12 +95,12 @@ task, and hey, I'm a masochist I guess...
     - [x] DNS name constraints
   - [ ] Inverse index mapping schemas (names -> certs, some of the cert splitting
     seems to basically accomplish this for us)
-- [ ] Create (gorp?) database models for everything
+- [x] Create database models for every schema
 - [ ] Add/Update methods for models
   - [x] Add ASN
   - [x] Add chain
   - [ ] Add (split) certificate
-  - [ ] Add submission report
+  - [x] Add submission report
 
 ### [Submission API](https://github.com/rolandshoemaker/gobservatory/blob/master/api/submission/submission.go)
 
@@ -109,16 +110,17 @@ task, and hey, I'm a masochist I guess...
 - [x] HTTPS server
 - [x] Submission handler
 - [x] [Query for ASN number and name if server IP available](https://github.com/rolandshoemaker/gobservatory/blob/master/external/asnFinder/asn.go)
-- [ ] Generate submission reports
+- [x] Generate submission reports
 - [ ] Support all submission parameters (ASN/opt out/etc)
 - [ ] Actually do what all the parameters indicate
-- [ ] Check that none of the certificates have been revoked before responding to client
+- [x] Check that none of the certificates have been revoked before responding to client
 - [ ] Graceful shutdown
 
 ### Certificate/chain parsing
 
 - [ ] Parse all the interesting stuff out of the certificates (basically just
   thanks Golang `^_^`)
+  - [ ] Comply with schemas above
   - [ ] [If available use OCSP to check if certificate is revoked](https://github.com/rolandshoemaker/gobservatory/blob/master/external/ocspChecker/ocsp.go)
   - [ ] [If available check CRL](https://github.com/rolandshoemaker/gobservatory/blob/master/external/crlChecker/crl.go)
 - [x] Generate valid chains for different root pools

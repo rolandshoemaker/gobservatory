@@ -53,7 +53,11 @@ func main() {
 		return
 	}
 	asnFinder := asnFinder.New(c.WHOIS.Host, c.WHOIS.Port, whoisTimeout, whoisKeepAlive)
-	database := db.New()
+	database, err := db.New()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
 	nssPool, err := core.PoolFromPEM("roots/nss_list.pem")
 	if err != nil {
@@ -65,7 +69,7 @@ func main() {
 	go func() {
 		obs.ParseSubmissions()
 	}()
-	err = obs.Serve()
+	err = obs.Serve("", "")
 	if err != nil {
 		fmt.Println(err)
 		return

@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/rolandshoemaker/gobservatory/core"
 	"github.com/rolandshoemaker/gobservatory/db"
@@ -20,6 +21,7 @@ import (
 type submissionRequest struct {
 	Certs            []*x509.Certificate
 	ServerIP         net.IP
+	ClientIP         net.IP
 	Source           string
 	Domain           string
 	ASN              int
@@ -72,6 +74,7 @@ func (a *API) submissionHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err)
 		return
 	}
+	sr.ClientIP = net.ParseIP(r.RemoteAddr)
 
 	// Check if cert has been revoked
 	var revocationInfo []revocationDescription
@@ -111,14 +114,14 @@ func (a *API) ParseSubmissions() error {
 	for submission := range a.submissions {
 		// XXX: Debugging statements
 		fmt.Println("PARSING SUBMISSION!")
-		err := a.addCertificates(submission.Certs)
-		if err != nil {
-			// Log error don't return method so we can try to get everything in...
-			fmt.Println(err)
-		}
-		err = a.addASN(submission.ASN, submission.ServerIP)
+		asnNum, err := a.addASN(submission.ASN, submission.ClientIP)
 		if err != nil {
 			// Log error don't return method so we can try to get everything in
+			fmt.Println(err)
+		}
+		err = a.addCertificates(submission.Certs, asnNum)
+		if err != nil {
+			// Log error don't return method so we can try to get everything in...
 			fmt.Println(err)
 		}
 	}
@@ -126,86 +129,40 @@ func (a *API) ParseSubmissions() error {
 	return nil
 }
 
-func (a *API) generateChains(certs []*x509.Certificate) ([]db.CertificateChain, bool) {
+func (a *API) generateChainMeta(certs []*x509.Certificate) (db.CertificateChainMeta, bool) {
 	// XXX: Debugging statements
 	fmt.Println("GENERATING CHAINS!")
-	chainMap := make(map[string]db.CertificateChain)
 	intermediatePool := x509.NewCertPool()
-	for _, cert := range certs {
+	for _, cert := range certs[1:] {
 		intermediatePool.AddCert(cert)
 	}
-	nssValid := false
-	msValid := false
-	for _, cert := range certs {
-		// Check NSS validity of certificate
-		nssChains, err := cert.Verify(x509.VerifyOptions{
-			Intermediates: intermediatePool,
-			Roots:         a.nssPool,
-			KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
-		})
-		if err != nil {
-			// XXX: Debugging statements
-			fmt.Println("NSS --", err)
-		}
-		// Check MS validity of certificate
-		msChains, err := cert.Verify(x509.VerifyOptions{
-			Intermediates: intermediatePool,
-			Roots:         a.msPool,
-			KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
-		})
-		if err != nil {
-			// XXX: Debugging statements
-			fmt.Println("MS --", err)
-		}
-		// XXX: This is, uh..., a little hacky :/
-		if !nssValid {
-			nssValid = len(nssChains) > 0
-		}
-		if !msValid {
-			msValid = len(msChains) > 0
-		}
-
-		// Collect NSS chains
-		for _, chain := range nssChains {
-			var chainBytes []byte
-			for _, cert := range chain {
-				chainBytes = append(chainBytes, cert.Raw...)
-			}
-			fingerprint := sha256.Sum256(chainBytes)
-			var present bool
-			var existingChain db.CertificateChain
-			existingChain, present = chainMap[fmt.Sprintf("%x", fingerprint[:])]
-			if !present {
-				existingChain = db.CertificateChain{Fingerprint: fingerprint[:]}
-				existingChain.Certs = len(chain)
-				existingChain.Validity = true
-			}
-			existingChain.NssValidity = true
-			chainMap[fmt.Sprintf("%x", fingerprint[:])] = existingChain
-		}
-		// Collect MS chains
-		for _, chain := range msChains {
-			var chainBytes []byte
-			for _, cert := range chain {
-				chainBytes = append(chainBytes, cert.Raw...)
-			}
-			fingerprint := sha256.Sum256(chainBytes)
-			var present bool
-			var existingChain db.CertificateChain
-			existingChain, present = chainMap[fmt.Sprintf("%x", fingerprint[:])]
-			if !present {
-				existingChain = db.CertificateChain{Fingerprint: fingerprint[:]}
-				existingChain.Certs = len(chain)
-				existingChain.Validity = true
-			}
-			existingChain.MsValidity = true
-			chainMap[fmt.Sprintf("%x", fingerprint[:])] = existingChain
-		}
+	cert := certs[0]
+	// Check NSS validity of certificate
+	nssChains, err := cert.Verify(x509.VerifyOptions{
+		Intermediates: intermediatePool,
+		Roots:         a.nssPool,
+		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+	})
+	if err != nil {
+		// XXX: Debugging statements
+		fmt.Println("NSS --", err)
+	}
+	// Check MS validity of certificate
+	msChains, err := cert.Verify(x509.VerifyOptions{
+		Intermediates: intermediatePool,
+		Roots:         a.msPool,
+		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+	})
+	if err != nil {
+		// XXX: Debugging statements
+		fmt.Println("MS --", err)
 	}
 
 	// If no valid chains were produced check for trans-validity or add the chain
 	// as invalid.
-	if len(chainMap) == 0 {
+	nssValid := len(nssChains) > 0
+	msValid := len(msChains) > 0
+	if !nssValid && !msValid {
 		trans := false
 		// Check for trans-validity
 		transChains, err := certs[0].Verify(x509.VerifyOptions{
@@ -228,73 +185,99 @@ func (a *API) generateChains(certs []*x509.Certificate) ([]db.CertificateChain, 
 			chainBytes = append(chainBytes, cert.Raw...)
 		}
 		fingerprint := sha256.Sum256(chainBytes)
-		return []db.CertificateChain{db.CertificateChain{
+		return db.CertificateChainMeta{
 			Certs:         len(certs),
 			Fingerprint:   fingerprint[:],
 			Validity:      trans,
 			TransValidity: trans,
-		}}, true
+		}, true
 	}
-	var chains []db.CertificateChain
-	for _, chain := range chainMap {
-		chains = append(chains, chain)
+	var chainBytes []byte
+	for _, cert := range certs {
+		chainBytes = append(chainBytes, cert.Raw...)
 	}
-	return chains, nssValid || msValid
+	fingerprint := sha256.Sum256(chainBytes)
+	chain := db.CertificateChainMeta{
+		Certs:       len(certs),
+		Fingerprint: fingerprint[:],
+		Validity:    nssValid || msValid,
+		NssValidity: nssValid,
+		MsValidity:  msValid,
+	}
+	return chain, nssValid || msValid
 }
 
-func (a *API) addCertificate(cert *x509.Certificate, valid bool) {
-	// Decompsoe certificate into all the different bits we want
+func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certificate, valid, leaf bool, asnNum int, now time.Time) error {
+	// Check if certificate has already been added, if so no need to do work intensive
+	// decomposition
+	fingerprint := core.Fingerprint(cert)
 
-	// Actually, you know, add it
+	if exists, err := a.db.CertificateExists(fingerprint); err == nil && !exists {
+		// Decompsoe certificate into all the different bits we want
+
+		// Actually, you know, add it
+	} else if err != nil {
+		// Log err but continue with submission report?
+		fmt.Println(err)
+	}
+
+	// Add report
+	return a.db.AddReport(&db.Report{
+		// Source: ,
+		// ServerIP: ,
+		// Domain: ,
+		CertificateFingerprint: fingerprint,
+		ChainFingerprint:       chainMeta.Fingerprint,
+		Leaf:                   leaf,
+		ASNNumber:              asnNum,
+		Submitted:              now,
+	})
 }
 
-func (a *API) addCertificates(certs []*x509.Certificate) error {
+func (a *API) addCertificates(certs []*x509.Certificate, asnNum int) error {
 	// XXX: Debugging statements
 	fmt.Printf("ADDING [%d] CERTIFICATES!\n", len(certs))
 
-	for _, cert := range certs {
-		fmt.Printf("\t%s\n", cert.Subject.CommonName)
-	}
+	chainMeta, valid := a.generateChainMeta(certs)
+	a.addChainMeta(chainMeta)
 
-	chains, valid := a.generateChains(certs)
-	for _, cert := range certs {
-		a.addCertificate(cert, valid)
+	now := time.Now()
+	for i, cert := range certs {
+		err := a.addCertificate(chainMeta, cert, valid, (i == 0), asnNum, now)
+		if err != nil {
+			// Log but don't break
+			fmt.Println(err)
+		}
 	}
-
-	// Add all chains
-	a.addChains(chains)
 
 	return nil
 }
 
-func (a *API) addASN(asnFlag int, ip net.IP) error {
+func (a *API) addASN(asnFlag int, ip net.IP) (int, error) {
+	number := -1
 	switch asnFlag {
-	case -2:
+	case -2: // XXX: ??? Check https everywhere / index.py to figure out whats needed
 		// XXX: Debugging statements
 		fmt.Println("ADDING ASN!")
 		number, name, err := a.asnFinder.GetASN(ip)
 		if err != nil {
-			return err
+			return -1, err
 		}
 		err = a.db.AddASN(number, name)
 		if err != nil {
-			return err
+			return -1, err
 		}
 	}
-	return nil
+	return number, nil
 }
 
-func (a *API) addChains(chains []db.CertificateChain) {
-	fmt.Printf("ADDING [%d] CHAINS!\n", len(chains))
-	for _, chain := range chains {
-		// XXX: Debugging statements
-		fmt.Printf("[CHAIN] Fingerprint: %x, Certs: %d\n", chain.Fingerprint, chain.Certs)
-		fmt.Printf("\t[VALIDITY] NSS: %v, MS: %v, Valid: %v, Trans-valid: %v\n", chain.NssValidity, chain.MsValidity, chain.Validity, chain.TransValidity)
-		err := a.db.AddChain(chain)
-		if err != nil {
-			// Just log it and continue on our way
-			fmt.Println(err)
-		}
+func (a *API) addChainMeta(chainMeta db.CertificateChainMeta) {
+	fmt.Printf("ADDING CHAIN METADATA!\n")
+	// XXX: Debugging statements
+	fmt.Printf("[CHAIN] Fingerprint: %x, Certs: %d, NSS: %v, MS: %v, Valid: %v, Trans-valid: %v\n", chainMeta.Fingerprint, chainMeta.Certs, chainMeta.NssValidity, chainMeta.MsValidity, chainMeta.Validity, chainMeta.TransValidity)
+	err := a.db.AddChainMeta(chainMeta)
+	if err != nil {
+		return
 	}
 }
 

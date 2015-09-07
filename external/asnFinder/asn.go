@@ -47,9 +47,12 @@ func (f *Finder) GetASN(ip net.IP) (int, string, error) {
 	}
 	lines := strings.Split(string(bodyBuf), "\n")
 	if len(lines) < 2 {
-		return 0, "", fmt.Errorf("Not enough information provided")
+		return 0, "", fmt.Errorf("Not enough information about address")
 	}
 	fields := strings.Split(lines[1], "|")
+	if len(fields) < 3 {
+		return 0, "", fmt.Errorf("Not enough information about address")
+	}
 	asnName := fields[2]
 	asnNum, err := strconv.Atoi(strings.Trim(fields[0], " "))
 	if err != nil {

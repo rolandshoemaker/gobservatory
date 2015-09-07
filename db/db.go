@@ -6,6 +6,8 @@ import (
 
 	"github.com/rolandshoemaker/gobservatory/core"
 
+	// MySQL driver import
+	_ "github.com/go-sql-driver/mysql"
 	"gopkg.in/gorp.v1"
 )
 
@@ -15,20 +17,29 @@ type Database struct {
 }
 
 // New provides an initialized Database
-func New() *Database {
-	return &Database{}
+func New() (*Database, error) {
+	db, err := sql.Open("mysql", "boulder@tcp(localhost:3306)/obs_draft_schema?parseTime=true&strict=true")
+	if err != nil {
+		return nil, err
+	}
+	if err = db.Ping(); err != nil {
+		return nil, err
+	}
+	dbmap := &gorp.DbMap{Db: db, Dialect: gorp.SqliteDialect{}}
+	dbmap.AddTableWithName(RevokedCertificate{}, "revoked_certificates")
+	return &Database{m: &gorp.DbMap{Db: db, Dialect: gorp.SqliteDialect{}}}, nil
 }
 
 // AddASN inserts or updates a ASN in the database
 func (db *Database) AddASN(number int, name string) error {
+	now := time.Now()
 	_, err := db.m.Exec(
-		`INSERT INTO asns (number, name, last_seen) VALUES(:number, :name, :lastSeen)
-		 ON DUPLICATE KEY UPDATE last_seen=VALUE(:lastSeen)`,
-		map[string]interface{}{
-			"number":   number,
-			"name":     name,
-			"lastSeen": time.Now(),
-		},
+		`INSERT INTO asns (number, name, last_seen) VALUES(?, ?, ?)
+		 ON DUPLICATE KEY UPDATE last_seen=?`,
+		number,
+		name,
+		now,
+		now,
 	)
 	if err != nil {
 		return err
@@ -36,21 +47,23 @@ func (db *Database) AddASN(number int, name string) error {
 	return nil
 }
 
-// AddChain inserts or updates a chain in the database
-func (db *Database) AddChain(chain CertificateChain) error {
+// AddChainMeta inserts or updates a chain in the database
+func (db *Database) AddChainMeta(chain CertificateChainMeta) error {
+	now := time.Now()
 	_, err := db.m.Exec(
-		`INSERT INTO chains (fingerprint, first_seen, last_seen, nss_valid, ms_valid, trans_valid, valid, count)
-		 VALUES(:fingerprint, :now, :now, :nssValid, :msValid, :transValid, :valid, :count)
-		 ON DUPLICATE KEY UPDATE (last_seen, count) VALUEs(:now, count+1)`,
-		map[string]interface{}{
-			"fingerprint": chain.Fingerprint,
-			"now":         time.Now(),
-			"nssValid":    chain.NssValidity,
-			"msValid":     chain.MsValidity,
-			"transValid":  chain.TransValidity,
-			"valid":       chain.Validity,
-			"count":       1,
-		},
+		`INSERT INTO chains (fingerprint, certs, first_seen, last_seen, nss_valid, ms_valid, trans_valid, valid, count)
+		 VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON DUPLICATE KEY UPDATE last_seen=?, count=VALUES(count)+1`,
+		chain.Fingerprint,
+		chain.Certs,
+		now,
+		now,
+		chain.NssValidity,
+		chain.MsValidity,
+		chain.TransValidity,
+		chain.Validity,
+		1,
+		now,
 	)
 	if err != nil {
 		return err
@@ -64,7 +77,7 @@ func (db *Database) IsRevoked(fingerprint []byte) (bool, string, error) {
 	var reovcationReason int
 	err := db.m.SelectOne(
 		&reovcationReason,
-		"SELECT revocation_reason FROM revoked_certificates WHERE fingerprint=:fingerprint",
+		"SELECT revocation_reason FROM revoked_certificates WHERE fingerprint = :fingerprint",
 		map[string]interface{}{
 			"fingerprint": fingerprint,
 		},
@@ -76,4 +89,25 @@ func (db *Database) IsRevoked(fingerprint []byte) (bool, string, error) {
 		return false, "", err
 	}
 	return true, core.RevocationReasons[reovcationReason], nil
+}
+
+// AddReport adds a submission report to the database
+func (db *Database) AddReport(report *Report) error {
+	return db.m.Insert(report)
+}
+
+// CertificateExists checks if a certificate has already been added to the database
+func (db *Database) CertificateExists(fingerprint []byte) (bool, error) {
+	var count int
+	err := db.m.SelectOne(
+		&count,
+		"SELECT count(fingerprint) FROM certificates WHERE fingerprint = :fingerprint",
+		map[string]interface{}{
+			"fingerprint": fingerprint,
+		},
+	)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, err
 }

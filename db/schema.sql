@@ -19,6 +19,7 @@ CREATE TABLE `asns` (
 
 CREATE TABLE `chains` (
   `fingerprint` binary(32) NOT NULL,
+  `certs` int NOT NULL,
   `first_seen` datetime NOT NULL,
   `last_seen` datetime NOT NULL,
   `nss_valid` tinyint(1) NOT NULL,
@@ -56,9 +57,8 @@ CREATE TABLE `certificates` (
   `root` tinyint(1) NOT NULL,
   `basic_constraints` tinyint(1) NOT NULL,
   `name_constraints_critical` tinyint(1) NOT NULL,
-  `max_path_len` int(10) NOT NULL,
+  `max_path_len` tinyint(1) NOT NULL,
   `max_path_zero` tinyint(1) NOT NULL,
-  `issuer_serial` varchar(256) NOT NULL,
   `signature_alg` tinyint(1) NOT NULL,
   `signature` blob NOT NULL,
   `not_before` datetime NOT NULL,
@@ -168,7 +168,7 @@ CREATE TABLE `dns_names` (
 CREATE TABLE `ip_addresses` (
   `certificate_fingerprint` binary(32) NOT NULL,
   `ip` varchar(256) NOT NULL,
-  `type` tinyint(1) NOT NULL,
+  `address_type` tinyint(1) NOT NULL,
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_ip_addresses` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
@@ -277,8 +277,8 @@ CREATE TABLE `subject_extensions` (
 
 CREATE TABLE `certificate_extensions` (
   `certificate_fingerprint` binary(32) NOT NULL,
-  `critical` tinyint(1) NOT NULL,
   `identifier` varchar(256) NOT NULL,
+  `critical` tinyint(1) NOT NULL,
   `value` blob NOT NULL,
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_certificate_extensions` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
@@ -334,19 +334,22 @@ CREATE TABLE `policy_identifiers` (
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
 -- Reports
---   Contains submission reports for each certificate in a submitted chain
+--   Contains submission reports for each certificate in a submitted chain.
 --
 
 CREATE TABLE `reports` (
-  `source` varchar(256) NOT NULL,
+  `source` tinyint(1) NOT NULL,
   `certificate_fingerprint` binary(32) NOT NULL,
   `leaf` tinyint(1) NOT NULL,
   `chain_fingerprint` binary(32) NOT NULL,
   `server_ip` varchar(256) DEFAULT NULL,
   `domain` varchar(256) NOT NULL,
+  `asn_number` int(11) NOT NULL,
   `submitted` datetime NOT NULL,
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   KEY `chain_fingerprint_idx` (`chain_fingerprint`),
-  CONSTRAINT `certificate_fingerprint_reports` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
-  CONSTRAINT `chain_fingerprint_reports` FOREIGN KEY (`chain_fingerprint`) REFERENCES `chains` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
+  KEY `asn_idx` (`asn_number`),
+  CONSTRAINT `certificate_fingerprint_reports` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION,
+  CONSTRAINT `chain_fingerprint_reports` FOREIGN KEY (`chain_fingerprint`) REFERENCES `chains` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION,
+  CONSTRAINT `asn_reports` FOREIGN KEY (`asn_number`) REFERENCES `asns` (`number`) ON DELETE CASCADE ON UPDATE NO ACTION
 )
