@@ -18,7 +18,7 @@ CREATE TABLE `asns` (
 --
 
 CREATE TABLE `chains` (
-  `fingerprint` binary(36) NOT NULL,
+  `fingerprint` binary(32) NOT NULL,
   `first_seen` datetime NOT NULL,
   `last_seen` datetime NOT NULL,
   `nss_valid` tinyint(1) NOT NULL,
@@ -29,6 +29,20 @@ CREATE TABLE `chains` (
   PRIMARY KEY (`fingerprint`)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
+-- Revoked certificates
+--   Contains the fingerprints, revocation times, reasons, and if the revocation
+--   was found by OCSP and/or CRL.
+--
+
+CREATE TABLE `revoked_certificates` (
+  `fingerprint` binary(32) NOT NULL,
+  `revoked_at` datetime DEFAULT NULL,
+  `revocation_reason` tinyint(1) DEFAULT NULL,
+  `by_ocsp` tinyint(1) NOT NULL,
+  `by_crl` tinyint(1) NOT NULL,
+  PRIMARY KEY (`fingerprint`)
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
+
 -- Certificates
 --   Basic certificates, most certificate properties are stripped out to seperate
 --   tables what is left is the main key, 'fingerprint', and various other basic
@@ -36,10 +50,9 @@ CREATE TABLE `chains` (
 --
 
 CREATE TABLE `certificates` (
-  `fingerprint` binary(36) NOT NULL,
+  `fingerprint` binary(32) NOT NULL,
   `valid` tinyint(1) NOT NULL,
   `version` tinyint(1) NOT NULL,
-  `serial` varchar(256) NOT NULL,
   `root` tinyint(1) NOT NULL,
   `basic_constraints` tinyint(1) NOT NULL,
   `name_constraints_critical` tinyint(1) NOT NULL,
@@ -50,10 +63,7 @@ CREATE TABLE `certificates` (
   `signature` blob NOT NULL,
   `not_before` datetime NOT NULL,
   `not_after` datetime NOT NULL,
-  `common_name` varchar(256) NOT NULL,
   `revoked` tinyint(1) NOT NULL,
-  `revoked_at` datetime DEFAULT NULL,
-  `revoked_reason` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`fingerprint`)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
@@ -63,10 +73,46 @@ CREATE TABLE `certificates` (
 --
 
 CREATE TABLE `raw_certificates` (
-  `certificate_fingerprint` binary(36) NOT NULL,
+  `certificate_fingerprint` binary(32) NOT NULL,
   `der` blob NOT NULL,
-  KEY `fingerprint_idx` (`certificate_fingerprint`),
+  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_raw_certificates` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
+
+-- Authority key identifier
+--   Contains auth key ID taken from a certificate linked by the `certificate_fingerprint`
+--   key.
+--
+
+CREATE TABLE `authority_key_id` (
+  `certificate_fingerprint` binary(32) NOT NULL,
+  `key_identifier` blob NOT NULL,
+  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
+  CONSTRAINT `fingerprint_authority_key_id` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
+
+-- Subject key identifier
+--   Contains subject key ID taken from a certificate linked by the `certificate_fingerprint`
+--   key.
+--
+
+CREATE TABLE `subject_key_id` (
+  `certificate_fingerprint` binary(32) NOT NULL,
+  `key_identifier` blob NOT NULL,
+  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
+  CONSTRAINT `fingerprint_subject_key_id` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
+
+-- Key usages
+--   Contains key usages taken from a certificate linked by the `certificate_fingerprint`
+--   key.
+--
+
+CREATE TABLE `key_usages` (
+  `certificate_fingerprint` binary(32) NOT NULL,
+  `usage` int NOT NULL,
+  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
+  CONSTRAINT `fingerprint_key_usages` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
 -- RSA public keys
@@ -75,11 +121,13 @@ CREATE TABLE `raw_certificates` (
 --
 
 CREATE TABLE `rsa_keys` (
-  `certificate_fingerprint` binary(36) NOT NULL,
+  `certificate_fingerprint` binary(32) NOT NULL,
+  `key_fingerprint` binary(32) NOT NULL,
   `modulusSize` bigint(20) NOT NULL,
   `modulus` bigint(40) NOT NULL,
   `exponent` bigint(40) NOT NULL,
-  KEY `fingerprint_idx` (`certificate_fingerprint`),
+  PRIMARY KEY (`key_fingerprint`),
+  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_rsa_keys` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
@@ -89,11 +137,13 @@ CREATE TABLE `rsa_keys` (
 --
 
 CREATE TABLE `ecc_keys` (
-  `certificate_fingerprint` binary(36) NOT NULL,
+  `certificate_fingerprint` binary(32) NOT NULL,
+  `key_fingerprint` binary(32) NOT NULL,
   `curve` int NOT NULL,
   `x` bigint(40) NOT NULL,
   `y` bigint(40) NOT NULL,
-  KEY `fingerprint_idx` (`certificate_fingerprint`),
+  PRIMARY KEY (`key_fingerprint`),
+  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_ecc_keys` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
@@ -103,10 +153,10 @@ CREATE TABLE `ecc_keys` (
 --
 
 CREATE TABLE `dns_names` (
-  `certificate_fingerprint` binary(36) NOT NULL,
+  `certificate_fingerprint` binary(32) NOT NULL,
   `name` varchar(256) NOT NULL,
   `wildcard` tinyint(1) NOT NULL,
-  KEY `fingerprint_idx` (`certificate_fingerprint`),
+  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_dns_names` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
@@ -116,10 +166,10 @@ CREATE TABLE `dns_names` (
 --
 
 CREATE TABLE `ip_addresses` (
-  `certificate_fingerprint` binary(36) NOT NULL,
+  `certificate_fingerprint` binary(32) NOT NULL,
   `ip` varchar(256) NOT NULL,
   `type` tinyint(1) NOT NULL,
-  KEY `fingerprint_idx` (`certificate_fingerprint`),
+  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_ip_addresses` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
@@ -129,10 +179,22 @@ CREATE TABLE `ip_addresses` (
 --
 
 CREATE TABLE `email_addresses` (
-  `certificate_fingerprint` binary(36) NOT NULL,
+  `certificate_fingerprint` binary(32) NOT NULL,
   `email` varchar(256) NOT NULL,
-  KEY `fingerprint_idx` (`certificate_fingerprint`),
+  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_email_addresses` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
+
+-- Common names
+--   Contains common names taken from a certificate linked by the `certificate_fingerprint`
+--   key.
+--
+
+CREATE TABLE `common_names` (
+  `certificate_fingerprint` binary(32) NOT NULL,
+  `name` varchar(256) NOT NULL,
+  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
+  CONSTRAINT `fingerprint_common_names` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
 -- Countries
@@ -141,9 +203,9 @@ CREATE TABLE `email_addresses` (
 --
 
 CREATE TABLE `countries` (
-  `certificate_fingerprint` binary(36) NOT NULL,
+  `certificate_fingerprint` binary(32) NOT NULL,
   `country` varchar(256) NOT NULL,
-  KEY `fingerprint_idx` (`certificate_fingerprint`),
+  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_countries` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
@@ -153,9 +215,9 @@ CREATE TABLE `countries` (
 --
 
 CREATE TABLE `organizations` (
-  `certificate_fingerprint` binary(36) NOT NULL,
+  `certificate_fingerprint` binary(32) NOT NULL,
   `organization` varchar(256) NOT NULL,
-  KEY `fingerprint_idx` (`certificate_fingerprint`),
+  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_organizations` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
@@ -165,9 +227,9 @@ CREATE TABLE `organizations` (
 --
 
 CREATE TABLE `organizational_units` (
-  `certificate_fingerprint` binary(36) NOT NULL,
+  `certificate_fingerprint` binary(32) NOT NULL,
   `organizational_unit` varchar(256) NOT NULL,
-  KEY `fingerprint_idx` (`certificate_fingerprint`),
+  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_organizational_units` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
@@ -177,9 +239,9 @@ CREATE TABLE `organizational_units` (
 --
 
 CREATE TABLE `localities` (
-  `certificate_fingerprint` binary(36) NOT NULL,
+  `certificate_fingerprint` binary(32) NOT NULL,
   `locality` varchar(256) NOT NULL,
-  KEY `fingerprint_idx` (`certificate_fingerprint`),
+  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_localities` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
@@ -189,9 +251,9 @@ CREATE TABLE `localities` (
 --
 
 CREATE TABLE `provinces` (
-  `certificate_fingerprint` binary(36) NOT NULL,
+  `certificate_fingerprint` binary(32) NOT NULL,
   `province` varchar(256) NOT NULL,
-  KEY `fingerprint_idx` (`certificate_fingerprint`),
+  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_provinces` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
@@ -201,10 +263,10 @@ CREATE TABLE `provinces` (
 --
 
 CREATE TABLE `subject_extensions` (
-  `certificate_fingerprint` binary(36) NOT NULL,
-  `id` varchar(256) NOT NULL,
+  `certificate_fingerprint` binary(32) NOT NULL,
+  `identifier` varchar(256) NOT NULL,
   `value` blob NOT NULL,
-  KEY `fingerprint_idx` (`certificate_fingerprint`),
+  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_subject_extensions` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
@@ -214,11 +276,11 @@ CREATE TABLE `subject_extensions` (
 --
 
 CREATE TABLE `certificate_extensions` (
-  `certificate_fingerprint` binary(36) NOT NULL,
+  `certificate_fingerprint` binary(32) NOT NULL,
   `critical` tinyint(1) NOT NULL,
-  `id` varchar(256) NOT NULL,
+  `identifier` varchar(256) NOT NULL,
   `value` blob NOT NULL,
-  KEY `fingerprint_idx` (`certificate_fingerprint`),
+  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_certificate_extensions` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
@@ -228,9 +290,9 @@ CREATE TABLE `certificate_extensions` (
 --
 
 CREATE TABLE `ocsp_endpoints` (
-  `certificate_fingerprint` binary(36) NOT NULL,
+  `certificate_fingerprint` binary(32) NOT NULL,
   `endpoint` varchar(256) NOT NULL,
-  KEY `fingerprint_idx` (`certificate_fingerprint`),
+  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_ocsp_endpoint` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
@@ -240,9 +302,9 @@ CREATE TABLE `ocsp_endpoints` (
 --
 
 CREATE TABLE `crl_endpoints` (
-  `certificate_fingerprint` binary(36) NOT NULL,
+  `certificate_fingerprint` binary(32) NOT NULL,
   `endpoint` varchar(256) NOT NULL,
-  KEY `fingerprint_idx` (`certificate_fingerprint`),
+  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_crl_endpoint` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
@@ -253,8 +315,20 @@ CREATE TABLE `crl_endpoints` (
 --
 
 CREATE TABLE `constrained_names` (
-  `certificate_fingerprint` binary(36) NOT NULL,
+  `certificate_fingerprint` binary(32) NOT NULL,
   `name` varchar(256) NOT NULL,
-  KEY `fingerprint_idx` (`certificate_fingerprint`),
+  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_constrained_names` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
+
+-- Policy identifiers
+--   Contains policy identifier strings taken from a certificate linked by the
+--   `certificate_fingerprint` key.
+--
+
+CREATE TABLE `policy_identifiers` (
+  `certificate_fingerprint` binary(32) NOT NULL,
+  `identifier` varchar(256) NOT NULL,
+  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
+  CONSTRAINT `fingerprint_policy_identifiers` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;

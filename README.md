@@ -6,27 +6,28 @@ task, and hey, I'm a masochist I guess...
 ##  Basic workflow
 
 ```
-      * MS root pool
-      * NSS root pool
+                        * MS root pool
+                        * NSS root pool
+                        * Trans root pool    * asn finder
 
-             ^
-             |
-             v
+                               ^                  ^
+                               |                  |
+                               v                  v
 
-      submission api -> validity checker -> cert decomposer -> database <-> query api
+      submission api -> validity checker -> meta generator -> database <-> query api
 
-             ^                  ^                                  ^
-             |                  |                                  |
-             v                  v                                  v
+             ^                                                    ^
+             |                                                    |
+             v                                                    v
 
-       * ocsp checker     * asn finder                      periodic updater
+       * ocsp checker                                      periodic updater
        * crl checker
-                                                                   ^
-                                                                   |
-                                                                   v
+                                                                  ^
+                                                                  |
+                                                                  v
 
-                                                            * ocsp checker
-                                                            * crl checker
+                                                           * ocsp checker
+                                                           * crl checker
 ```
 
 ## TODO
@@ -61,19 +62,36 @@ task, and hey, I'm a masochist I guess...
   - [ ] Various certificate schemas
     - [ ] Basic certificates (still needs work and probably more splitting and
       `SubjectKeyId` + `AuthorityKeyId` stuff...)
-    - [ ] Key usage (or should this be in the main table?)
+    - [x] Key usage
     - [x] Raw certificates (DER)
-    - [x] Names
+    - [x] Subject key identifier
+    - [x] Authority key identifier
+    - [x] DNS names
     - [x] IPs
     - [x] Emails
     - [x] Subjects (Also split)
+      - [ ] Serial (?)
+      - [x] Common names
+      - [x] Countries
+      - [x] Organizations
+      - [x] Organizational units
+      - [x] Localities
+      - [x] Provinces
+    - [ ] Issuer subjects (?)
+      - [ ] Serial
+      - [ ] Common names
+      - [ ] Countries
+      - [ ] Organizations
+      - [ ] Organizational units
+      - [ ] Localities
+      - [ ] Provinces
     - [x] Subject extensions (how to handle extension content?)
     - [x] x509v3 extensions (how to handle extension content?)
     - [x] RSA public keys
     - [x] ECC public keys (only P-224, P-256, P-384, and P-521 curves)
     - [x] OCSP endpoints
     - [x] CRL endpoints
-    - [ ] Policy OIDs
+    - [x] Policy OIDs
     - [x] DNS name constraints
   - [ ] Inverse index mapping schemas (names -> certs, some of the cert splitting
     seems to basically accomplish this for us)
