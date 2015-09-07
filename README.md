@@ -8,28 +8,28 @@ task, and hey, I'm a masochist I guess...
 ##  Basic workflow
 
 ```
-                        * MS root pool
-                        * NSS root pool
-                        * Trans root pool    * asn finder
+                      * MS root pool
+                      * NSS root pool
+                      * Trans root pool    * asn finder
 
-                               ^                  ^
-                               |                  |
-                               v                  v
+                             ^                  ^
+                             |                  |
+                             v                  v
 
-   <-> submission api -> validity checker -> meta generator -> database <-> query api
+ <-> submission api -> validity checker -> meta generator -> database <-> query api
 
-             ^                                                    ^
-             |                                                    |
-             v                                                    v
+           ^                                                    ^
+           |                                                    |
+           v                                                    v
 
-       * ocsp checker                                      periodic updater
-       * crl checker
-       * database (revocation checking)                           ^
-                                                                  |
-                                                                  v
+     * ocsp checker                                      periodic updater
+     * crl checker
+     * database (revocation checking)                           ^
+                                                                |
+                                                                v
 
-                                                           * ocsp checker
-                                                           * crl checker
+                                                         * ocsp checker
+                                                         * crl checker
 ```
 
 ## TODO

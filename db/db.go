@@ -7,8 +7,8 @@ import (
 	"github.com/rolandshoemaker/gobservatory/core"
 
 	// MySQL driver import
-	_ "github.com/go-sql-driver/mysql"
-	"gopkg.in/gorp.v1"
+	_ "github.com/rolandshoemaker/gobservatory/Godeps/_workspace/src/github.com/go-sql-driver/mysql"
+	"github.com/rolandshoemaker/gobservatory/Godeps/_workspace/src/gopkg.in/gorp.v1"
 )
 
 // Database provides an interface to the MySQL database

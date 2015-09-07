@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"time"
 
-	"gopkg.in/yaml.v2"
+	"github.com/rolandshoemaker/gobservatory/Godeps/_workspace/src/gopkg.in/yaml.v2"
 
 	"github.com/rolandshoemaker/gobservatory/api/submission"
 	"github.com/rolandshoemaker/gobservatory/db"
