@@ -67,7 +67,7 @@ func FingerprintKey(key crypto.PublicKey) ([]byte, error) {
 	return hash[:], nil
 }
 
-// SerialToString converts a x509 style serial number to a hex string
-func SerialToString(serial *big.Int) string {
-	return fmt.Sprintf("%032X", serial)
+// BigIntToString converts a *big.Int to a hex string
+func BigIntToString(bigInt *big.Int) string {
+	return fmt.Sprintf("%X", bigInt)
 }

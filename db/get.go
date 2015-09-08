@@ -1,9 +1,9 @@
-package database
+package db
 
 import (
 	"database/sql"
 
-	"github.com/letsencrypt/boulder/core"
+	"github.com/rolandshoemaker/gobservatory/core"
 )
 
 // IsRevoked checks the revoked_certificates table to quickly check if a certificate

@@ -1,6 +1,7 @@
-package database
+package db
 
 import (
+	"encoding/asn1"
 	"net"
 	"strings"
 	"time"
@@ -107,9 +108,14 @@ func (db *Database) AddDNSNames(fingerprint []byte, names []string) error {
 // AddIPAddresses adds a set of IP addresses from a certificate
 func (db *Database) AddIPAddresses(fingerprint []byte, ips []net.IP) error {
 	for _, ip := range ips {
+		addrType := uint8(0)
+		if len(ip) == net.IPv6len {
+			addrType = 1
+		}
 		err := db.m.Insert(&IPAddress{
 			CertificateFingerprint: fingerprint,
-			IP: ip.String(),
+			IP:          ip.String(),
+			AddressType: addrType,
 		})
 		if err != nil {
 			return err
@@ -225,13 +231,61 @@ func (db *Database) AddIssuingCertificateURL(fingerprint []byte, urls []string) 
 	return nil
 }
 
-// AddOCSPEndpoints
+// AddOCSPEndpoints adds OCSP endpoints taken from a certificate
+func (db *Database) AddOCSPEndpoints(fingerprint []byte, endpoints []string) error {
+	for _, endpoint := range endpoints {
+		err := db.m.Insert(&OCSPEndpoint{
+			CertificateFingerprint: fingerprint,
+			Endpoint:               endpoint,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-// AddCRLEndpoints
+// AddCRLEndpoints adds CRL distribution endpoints taken from a certificate
+func (db *Database) AddCRLEndpoints(fingerprint []byte, endpoints []string) error {
+	for _, endpoint := range endpoints {
+		err := db.m.Insert(&CRLEndpoint{
+			CertificateFingerprint: fingerprint,
+			Endpoint:               endpoint,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-// AddConstrainedDNSNames
+// AddConstrainedDNSNames adds constrained DNS names taken from a certificate
+func (db *Database) AddConstrainedDNSNames(fingerprint []byte, names []string) error {
+	for _, name := range names {
+		err := db.m.Insert(&ConstrainedName{
+			CertificateFingerprint: fingerprint,
+			Name: name,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-// AddPolicyIdentifiers
+// AddPolicyIdentifiers adds policy identifiers taken from a certificate
+func (db *Database) AddPolicyIdentifiers(fingerprint []byte, identifiers []asn1.ObjectIdentifier) error {
+	for _, identifier := range identifiers {
+		err := db.m.Insert(&PolicyIdentifier{
+			CertificateFingerprint: fingerprint,
+			Identifier:             identifier.String(),
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 // AddReport adds a submission report to the database
 func (db *Database) AddReport(report *Report) error {

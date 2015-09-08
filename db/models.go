@@ -1,9 +1,6 @@
 package db
 
-import (
-	"math/big"
-	"time"
-)
+import "time"
 
 // ASN describes a ASN and when it was last observed
 type ASN struct {
@@ -72,35 +69,35 @@ type SubjectKeyID struct {
 // KeyUsage describes the key usage of a submitted certificate
 type KeyUsage struct {
 	CertificateFingerprint []byte `db:"certificate_fingerprint"`
-	KeyUsage               uint8  `db:"key_usage"`
+	KeyUsage               uint8  `db:"usage"`
 }
 
 // RSAKey describes a RSA public key from a submitted certificate
 type RSAKey struct {
-	CertificateFingerprint []byte  `db:"certificate_fingerprint"`
-	KeyFingerprint         []byte  `db:"key_fingerprint"`
-	ModulusSize            int64   `db:"modulus_size"`
-	Modulus                big.Int `db:"modulus"`
-	Exponent               int     `db:"exponent"`
+	CertificateFingerprint []byte `db:"certificate_fingerprint"`
+	KeyFingerprint         []byte `db:"key_fingerprint"`
+	ModulusSize            int    `db:"modulus_size"`
+	Modulus                []byte `db:"modulus"`
+	Exponent               int    `db:"exponent"`
 }
 
 // DSAKey describes a DSA public key from a submitted certificate
 type DSAKey struct {
-	CertificateFingerprint []byte  `db:"certificate_fingerprint"`
-	KeyFingerprint         []byte  `db:"key_fingerprint"`
-	P                      big.Int `db:"p"`
-	Q                      big.Int `db:"q"`
-	G                      big.Int `db:"g"`
-	Y                      big.Int `db:"y"`
+	CertificateFingerprint []byte `db:"certificate_fingerprint"`
+	KeyFingerprint         []byte `db:"key_fingerprint"`
+	P                      []byte `db:"p"`
+	Q                      []byte `db:"q"`
+	G                      []byte `db:"g"`
+	Y                      []byte `db:"y"`
 }
 
 // ECDSAKey describes a ECC public key from a submitted certificate
 type ECDSAKey struct {
-	CertificateFingerprint []byte  `db:"certificate_fingerprint"`
-	KeyFingerprint         []byte  `db:"key_fingerprint"`
-	Curve                  string  `db:"curve"`
-	X                      big.Int `db:"x"`
-	Y                      big.Int `db:"y"`
+	CertificateFingerprint []byte `db:"certificate_fingerprint"`
+	KeyFingerprint         []byte `db:"key_fingerprint"`
+	Curve                  string `db:"curve"`
+	X                      []byte `db:"x"`
+	Y                      []byte `db:"y"`
 }
 
 // DNSName describes a DNS name taken from a submitted certificate

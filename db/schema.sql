@@ -1,7 +1,11 @@
+--
+-- Draft 1 -- September 2015
+--   A draft schema for the Go re-write of the SSL Observatory
+--
+
 -- ASNs
 --   ASN numbers, names, and the last time it was seen by a HTTPS Everywhere
 --   client.
---
 
 CREATE TABLE `asns` (
   `number` int(11) NOT NULL,
@@ -15,7 +19,6 @@ CREATE TABLE `asns` (
 --   sources and their NSS, MS, and trans validities. This table also tracks the number
 --   of times the chain has been generated/submitted and when it was last generated
 --   or submitted.
---
 
 CREATE TABLE `chains` (
   `fingerprint` binary(32) NOT NULL,
@@ -33,7 +36,6 @@ CREATE TABLE `chains` (
 -- Revoked certificates
 --   Contains the fingerprints, revocation times, reasons, and if the revocation
 --   was found by OCSP and/or CRL.
---
 
 CREATE TABLE `revoked_certificates` (
   `fingerprint` binary(32) NOT NULL,
@@ -48,7 +50,6 @@ CREATE TABLE `revoked_certificates` (
 --   Basic certificates, most certificate properties are stripped out to seperate
 --   tables what is left is the main key, 'fingerprint', and various other basic
 --   information
---
 
 CREATE TABLE `certificates` (
   `fingerprint` binary(32) NOT NULL,
@@ -71,7 +72,6 @@ CREATE TABLE `certificates` (
 -- Raw certificates
 --   Raw DER content of certificate we have decomposed into all the other tables,
 --   linked to the other certificate tables by the 'certificate_fingerprint' key.
---
 
 CREATE TABLE `raw_certificates` (
   `certificate_fingerprint` binary(32) NOT NULL,
@@ -83,7 +83,6 @@ CREATE TABLE `raw_certificates` (
 -- Authority key identifier
 --   Contains auth key ID taken from a certificate linked by the `certificate_fingerprint`
 --   key.
---
 
 CREATE TABLE `authority_key_ids` (
   `certificate_fingerprint` binary(32) NOT NULL,
@@ -95,7 +94,6 @@ CREATE TABLE `authority_key_ids` (
 -- Subject key identifier
 --   Contains subject key ID taken from a certificate linked by the `certificate_fingerprint`
 --   key.
---
 
 CREATE TABLE `subject_key_ids` (
   `certificate_fingerprint` binary(32) NOT NULL,
@@ -107,7 +105,6 @@ CREATE TABLE `subject_key_ids` (
 -- Key usages
 --   Contains key usages taken from a certificate linked by the `certificate_fingerprint`
 --   key.
---
 
 CREATE TABLE `key_usages` (
   `certificate_fingerprint` binary(32) NOT NULL,
@@ -119,13 +116,12 @@ CREATE TABLE `key_usages` (
 -- RSA public keys
 --   Contains RSA public keys taken from a certificate linked by the `certificate_fingerprint`
 --   key.
---
 
 CREATE TABLE `rsa_keys` (
   `certificate_fingerprint` binary(32) NOT NULL,
   `key_fingerprint` binary(32) NOT NULL,
-  `modulusSize` bigint(20) NOT NULL,
-  `modulus` bigint(40) NOT NULL,
+  `modulus_size` bigint(20) NOT NULL,
+  `modulus` blob NOT NULL,
   `exponent` bigint(20) NOT NULL,
   PRIMARY KEY (`key_fingerprint`),
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
@@ -135,15 +131,14 @@ CREATE TABLE `rsa_keys` (
 -- DSA public keys
 --   Contains DSA public keys taken from a certificate linked by the `certificate_fingerprint`
 --   key.
---
 
 CREATE TABLE `dsa_keys` (
   `certificate_fingerprint` binary(32) NOT NULL,
   `key_fingerprint` binary(32) NOT NULL,
-  `p` bigint(40) NOT NULL,
-  `q` bigint(40) NOT NULL,
-  `g` bigint(40) NOT NULL,
-  `y` bigint(40) NOT NULL,
+  `p` blob NOT NULL,
+  `q` blob NOT NULL,
+  `g` blob NOT NULL,
+  `y` blob NOT NULL,
   PRIMARY KEY (`key_fingerprint`),
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_dsa_keys` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
@@ -152,14 +147,13 @@ CREATE TABLE `dsa_keys` (
 -- ECC public keys
 --   Contains ECC public keys taken from a certificate linked by the `certificate_fingerprint`
 --   key. Only P-224, P-256, P-384, and P-521 curve based keys are stored.
---
 
 CREATE TABLE `ecdsa_keys` (
   `certificate_fingerprint` binary(32) NOT NULL,
   `key_fingerprint` binary(32) NOT NULL,
   `curve` varchar(256) NOT NULL,
-  `x` bigint(40) NOT NULL,
-  `y` bigint(40) NOT NULL,
+  `x` blob NOT NULL,
+  `y` blob NOT NULL,
   PRIMARY KEY (`key_fingerprint`),
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_ecc_keys` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
@@ -168,7 +162,6 @@ CREATE TABLE `ecdsa_keys` (
 -- DNS names
 --   Contains DNS names taken from a certificate linked by the `certificate_fingerprint`
 --   key. Also contains a bool to indicate if the name is a wildcard.
---
 
 CREATE TABLE `dns_names` (
   `certificate_fingerprint` binary(32) NOT NULL,
@@ -181,7 +174,6 @@ CREATE TABLE `dns_names` (
 -- IP addresses
 --   Contains IP addresses taken from a certificate linked by the `certificate_fingerprint`
 --   key. Also contains the type of the IP (v4: 0, v6: 1).
---
 
 CREATE TABLE `ip_addresses` (
   `certificate_fingerprint` binary(32) NOT NULL,
@@ -194,7 +186,6 @@ CREATE TABLE `ip_addresses` (
 -- Email addresses
 --   Contains email addresses taken from a certificate linked by the `certificate_fingerprint`
 --   key.
---
 
 CREATE TABLE `email_addresses` (
   `certificate_fingerprint` binary(32) NOT NULL,
@@ -206,7 +197,6 @@ CREATE TABLE `email_addresses` (
 -- Common names
 --   Contains common names taken from a certificate linked by the `certificate_fingerprint`
 --   key.
---
 
 CREATE TABLE `common_names` (
   `certificate_fingerprint` binary(32) NOT NULL,
@@ -218,7 +208,6 @@ CREATE TABLE `common_names` (
 -- Countries
 --   Contains Subject CNs taken from a certificate linked by the `certificate_fingerprint`
 --   key.
---
 
 CREATE TABLE `countries` (
   `certificate_fingerprint` binary(32) NOT NULL,
@@ -230,7 +219,6 @@ CREATE TABLE `countries` (
 -- Organizations
 --   Contains Subject Os taken from a certificate linked by the `certificate_fingerprint`
 --   key.
---
 
 CREATE TABLE `organizations` (
   `certificate_fingerprint` binary(32) NOT NULL,
@@ -242,7 +230,6 @@ CREATE TABLE `organizations` (
 -- Organizational Units
 --   Contains Subject OUs taken from a certificate linked by the `certificate_fingerprint`
 --   key.
---
 
 CREATE TABLE `organizational_units` (
   `certificate_fingerprint` binary(32) NOT NULL,
@@ -254,7 +241,6 @@ CREATE TABLE `organizational_units` (
 -- Localities
 --   Contains Subject Ls taken from a certificate linked by the `certificate_fingerprint`
 --   key.
---
 
 CREATE TABLE `localities` (
   `certificate_fingerprint` binary(32) NOT NULL,
@@ -266,7 +252,6 @@ CREATE TABLE `localities` (
 -- Provinces
 --   Contains Subject STs taken from a certificate linked by the `certificate_fingerprint`
 --   key.
---
 
 CREATE TABLE `provinces` (
   `certificate_fingerprint` binary(32) NOT NULL,
@@ -278,7 +263,6 @@ CREATE TABLE `provinces` (
 -- Subject extensions
 --   Contains Subject extensions Golang doesn't parse taken from a certificate
 --   linked by the `certificate_fingerprint` key.
---
 
 CREATE TABLE `subject_extensions` (
   `certificate_fingerprint` binary(32) NOT NULL,
@@ -291,7 +275,6 @@ CREATE TABLE `subject_extensions` (
 -- x509v3 extensions
 --   Contains x509v3 extensions taken from a certificate linked by the `certificate_fingerprint`
 --   key.
---
 
 CREATE TABLE `certificate_extensions` (
   `certificate_fingerprint` binary(32) NOT NULL,
@@ -305,7 +288,6 @@ CREATE TABLE `certificate_extensions` (
 -- Issuing certificate URLs
 --   Contains issuing certificate URLs taken from a certificate linked by the
 --   `certificate_fingerprint` key.
---
 
 CREATE TABLE `issuing_certificate_urls` (
   `certificate_fingerprint` binary(32) NOT NULL,
@@ -317,7 +299,6 @@ CREATE TABLE `issuing_certificate_urls` (
 -- OCSP endpoints
 --   Contains OCSP endpoints taken from a certificate linked by the `certificate_fingerprint`
 --   key.
---
 
 CREATE TABLE `ocsp_endpoints` (
   `certificate_fingerprint` binary(32) NOT NULL,
@@ -329,7 +310,6 @@ CREATE TABLE `ocsp_endpoints` (
 -- CRL endpoints
 --   Contains CRL endpoints taken from a certificate linked by the `certificate_fingerprint`
 --   key.
---
 
 CREATE TABLE `crl_endpoints` (
   `certificate_fingerprint` binary(32) NOT NULL,
@@ -342,7 +322,6 @@ CREATE TABLE `crl_endpoints` (
 --   Contains constrained DNS names taken from a certificate linked by the
 --   `certificate_fingerprint` key. Also contains a bool to indicate if the name
 --   is a wildcard.
---
 
 CREATE TABLE `constrained_names` (
   `certificate_fingerprint` binary(32) NOT NULL,
@@ -354,7 +333,6 @@ CREATE TABLE `constrained_names` (
 -- Policy identifiers
 --   Contains policy identifier strings taken from a certificate linked by the
 --   `certificate_fingerprint` key.
---
 
 CREATE TABLE `policy_identifiers` (
   `certificate_fingerprint` binary(32) NOT NULL,
@@ -365,7 +343,6 @@ CREATE TABLE `policy_identifiers` (
 
 -- Reports
 --   Contains submission reports for each certificate in a submitted chain.
---
 
 CREATE TABLE `reports` (
   `source` tinyint(1) NOT NULL,

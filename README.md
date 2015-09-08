@@ -38,6 +38,12 @@ task, and hey, I'm a masochist I guess...
 
 - [ ] Switch from SHA 256 to old weird fingerprinting method in order to back-compatible
   so we can seed the new schema from the old database
+- [ ] Reject absurdly large chains (if this is submission size based we can avoid
+  the below requirement I think...)
+- [ ] Add a method to check & truncate certificates if certain fields are too large
+  (and add some bool to the base Certificate model to represent if this has happened)
+  to prevent attacks where someone just constructs insanely massive certificates
+  we have to parse
 - [x] YAML config
 - [ ] Root pool retreival/loading tools
   - [x] Basic load from PEM method
@@ -100,7 +106,9 @@ task, and hey, I'm a masochist I guess...
   - [ ] Add (split) certificate
     - [x] Basic section
     - [x] Raw certificate
-    - [ ] Everything else...
+    - [x] Basically everything else...
+    - [ ] Certificate extensions
+    - [ ] Subject extensions
   - [x] Add submission report
 
 ### [Submission API](https://github.com/rolandshoemaker/gobservatory/blob/master/api/submission/submission.go)
