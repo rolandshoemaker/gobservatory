@@ -81,14 +81,24 @@ type RSAKey struct {
 	KeyFingerprint         []byte  `db:"key_fingerprint"`
 	ModulusSize            int64   `db:"modulus_size"`
 	Modulus                big.Int `db:"modulus"`
-	Exponent               big.Int `db:"exponent"`
+	Exponent               int     `db:"exponent"`
 }
 
-// ECCKey describes a ECC public key from a submitted certificate
-type ECCKey struct {
+// DSAKey describes a DSA public key from a submitted certificate
+type DSAKey struct {
 	CertificateFingerprint []byte  `db:"certificate_fingerprint"`
 	KeyFingerprint         []byte  `db:"key_fingerprint"`
-	Curve                  uint8   `db:"curve"`
+	P                      big.Int `db:"p"`
+	Q                      big.Int `db:"q"`
+	G                      big.Int `db:"g"`
+	Y                      big.Int `db:"y"`
+}
+
+// ECDSAKey describes a ECC public key from a submitted certificate
+type ECDSAKey struct {
+	CertificateFingerprint []byte  `db:"certificate_fingerprint"`
+	KeyFingerprint         []byte  `db:"key_fingerprint"`
+	Curve                  string  `db:"curve"`
 	X                      big.Int `db:"x"`
 	Y                      big.Int `db:"y"`
 }

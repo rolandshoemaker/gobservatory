@@ -126,10 +126,27 @@ CREATE TABLE `rsa_keys` (
   `key_fingerprint` binary(32) NOT NULL,
   `modulusSize` bigint(20) NOT NULL,
   `modulus` bigint(40) NOT NULL,
-  `exponent` bigint(40) NOT NULL,
+  `exponent` bigint(20) NOT NULL,
   PRIMARY KEY (`key_fingerprint`),
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_rsa_keys` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
+
+-- DSA public keys
+--   Contains DSA public keys taken from a certificate linked by the `certificate_fingerprint`
+--   key.
+--
+
+CREATE TABLE `dsa_keys` (
+  `certificate_fingerprint` binary(32) NOT NULL,
+  `key_fingerprint` binary(32) NOT NULL,
+  `p` bigint(40) NOT NULL,
+  `q` bigint(40) NOT NULL,
+  `g` bigint(40) NOT NULL,
+  `y` bigint(40) NOT NULL,
+  PRIMARY KEY (`key_fingerprint`),
+  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
+  CONSTRAINT `fingerprint_dsa_keys` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
 -- ECC public keys
@@ -137,10 +154,10 @@ CREATE TABLE `rsa_keys` (
 --   key. Only P-224, P-256, P-384, and P-521 curve based keys are stored.
 --
 
-CREATE TABLE `ecc_keys` (
+CREATE TABLE `ecdsa_keys` (
   `certificate_fingerprint` binary(32) NOT NULL,
   `key_fingerprint` binary(32) NOT NULL,
-  `curve` int NOT NULL,
+  `curve` varchar(256) NOT NULL,
   `x` bigint(40) NOT NULL,
   `y` bigint(40) NOT NULL,
   PRIMARY KEY (`key_fingerprint`),

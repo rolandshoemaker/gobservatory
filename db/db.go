@@ -132,15 +132,35 @@ func (db *Database) AddRawCertificate(rawCert *RawCertificate) error {
 	return db.m.Insert(rawCert)
 }
 
-// AddAuthorityKeyID
+// AddAuthorityKeyID adds the authority key id from a certificate
+func (db *Database) AddAuthorityKeyID(keyID *AuthorityKeyID) error {
+	return db.m.Insert(keyID)
+}
 
-// AddSubjectKeyID
+// AddSubjectKeyID adds the subject key id from a certificate
+func (db *Database) AddSubjectKeyID(keyID *SubjectKeyID) error {
+	return db.m.Insert(keyID)
+}
 
-// AddKeyUsage
+// AddKeyUsage adds the key usage from a certificate
+func (db *Database) AddKeyUsage(usage *KeyUsage) error {
+	return db.m.Insert(usage)
+}
 
-// AddRSAKey
+// AddRSAKey adds the RSA public key from a certificate
+func (db *Database) AddRSAKey(key *RSAKey) error {
+	return db.m.Insert(key)
+}
 
-// AddECCKey
+// AddDSAKey adds the DSA public key from a certificate
+func (db *Database) AddDSAKey(key *DSAKey) error {
+	return db.m.Insert(key)
+}
+
+// AddECDSAKey adds the ECC public key from a certificate
+func (db *Database) AddECDSAKey(key *ECDSAKey) error {
+	return db.m.Insert(key)
+}
 
 // AddDNSNames adds a set of DNS names from a certificate
 func (db *Database) AddDNSNames(fingerprint []byte, names []string) error {

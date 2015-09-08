@@ -84,6 +84,7 @@ task, and hey, I'm a masochist I guess...
     - [x] Subject extensions
     - [x] x509v3 extensions
     - [x] RSA public keys
+    - [x] DSA public keys
     - [x] ECC public keys (only P-224, P-256, P-384, and P-521 curves)
     - [x] OCSP endpoints
     - [x] CRL endpoints

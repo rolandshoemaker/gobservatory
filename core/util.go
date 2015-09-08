@@ -1,6 +1,7 @@
 package core
 
 import (
+	"crypto"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
@@ -54,6 +55,16 @@ func StringToFingerprint(fpStr string) ([]byte, error) {
 func Fingerprint(cert *x509.Certificate) []byte {
 	hash := sha256.Sum256(cert.Raw)
 	return hash[:]
+}
+
+// FingerprintKey creates a SHA256 key fingerprint
+func FingerprintKey(key crypto.PublicKey) ([]byte, error) {
+	der, err := x509.MarshalPKIXPublicKey(key)
+	if err != nil {
+		return nil, err
+	}
+	hash := sha256.Sum256(der)
+	return hash[:], nil
 }
 
 // SerialToString converts a x509 style serial number to a hex string

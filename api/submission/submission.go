@@ -1,6 +1,9 @@
 package submission
 
 import (
+	"crypto/dsa"
+	"crypto/ecdsa"
+	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
@@ -240,6 +243,106 @@ func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certi
 			// Continue
 			fmt.Println(err)
 		}
+
+		err = a.db.AddAuthorityKeyID(&db.AuthorityKeyID{
+			CertificateFingerprint: fingerprint,
+			KeyIdentifier:          cert.AuthorityKeyId,
+		})
+		if err != nil {
+			// Continue
+			fmt.Println(err)
+		}
+		err = a.db.AddSubjectKeyID(&db.SubjectKeyID{
+			CertificateFingerprint: fingerprint,
+			KeyIdentifier:          cert.SubjectKeyId,
+		})
+		if err != nil {
+			// Continue
+			fmt.Println(err)
+		}
+
+		err = a.db.AddKeyUsage(&db.KeyUsage{
+			CertificateFingerprint: fingerprint,
+			KeyUsage:               uint8(cert.KeyUsage),
+		})
+		if err != nil {
+			// Continue
+			fmt.Println(err)
+		}
+
+		keyFingerprint, err := core.FingerprintKey(cert.PublicKey)
+		if err != nil {
+			// Continue
+			fmt.Println(err)
+		} else {
+			switch t := cert.PublicKey.(type) {
+			case *rsa.PublicKey:
+				// AddRSAKey
+				err = a.db.AddRSAKey(&db.RSAKey{
+					CertificateFingerprint: fingerprint,
+					KeyFingerprint:         keyFingerprint,
+					// ModulusSize: ,
+					Modulus:  *t.N,
+					Exponent: t.E,
+				})
+			case *dsa.PublicKey:
+				// AddDSAKey
+				err = a.db.AddDSAKey(&db.DSAKey{
+					CertificateFingerprint: fingerprint,
+					KeyFingerprint:         keyFingerprint,
+				})
+			case *ecdsa.PublicKey:
+				// AddECDSAKey
+				err = a.db.AddECDSAKey(&db.ECDSAKey{
+					CertificateFingerprint: fingerprint,
+					KeyFingerprint:         keyFingerprint,
+					Curve:                  t.Params().Name,
+					X:                      *t.X,
+					Y:                      *t.Y,
+				})
+			}
+			if err != nil {
+				// Continue
+				fmt.Println(err)
+			}
+		}
+
+		err = a.db.AddDNSNames(fingerprint, cert.DNSNames)
+		if err != nil {
+			// Continue
+			fmt.Println(err)
+		}
+		err = a.db.AddIPAddresses(fingerprint, cert.IPAddresses)
+		if err != nil {
+			// Continue
+			fmt.Println(err)
+		}
+		err = a.db.AddEmailAddresses(fingerprint, cert.EmailAddresses)
+		if err != nil {
+			// Continue
+			fmt.Println(err)
+		}
+
+		err = a.db.AddCommonName(&db.CommonName{
+			CertificateFingerprint: fingerprint,
+			Name: cert.Subject.CommonName,
+		})
+		if err != nil {
+			// Continue
+			fmt.Println(err)
+		}
+		// AddCountries
+		// AddOrganizations
+		// AddOrganizationalUnits
+		// AddLocalities
+		// AddProvinces
+
+		// AddSubjectExtensions
+		// AddCertificateExtensions
+		// AddOCSPEndpoints
+		// AddCRLEndpoints
+		// AddConstrainedDNSNames
+		// AddPolicyIdentifiers
 	} else if err != nil {
 		return err
 	}
