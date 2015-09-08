@@ -32,6 +32,12 @@ task, and hey, I'm a masochist I guess...
                                                          * crl checker
 ```
 
+## Performance
+
+With a single submission processor on my machine I'm able to attain about ~30
+submissions/second, with two processors I can get ~60-70 submissions/second. This
+is as far as I've tested so far.
+
 ## TODO
 
 ### Random
@@ -54,7 +60,10 @@ task, and hey, I'm a masochist I guess...
     - [ ] MS root list retriever/parser/loader (no idea where to get this, surely
       there is someone who has done this)
   - [ ] Dynamic reloading of root pools (RPC?)
-- [ ] Periodic OCSP revocation checker (Jeremy may already be working on this!)
+- [ ] [If available use OCSP to check if certificate is revoked](https://github.com/rolandshoemaker/gobservatory/blob/master/external/ocspChecker/ocsp.go)
+  (periodically, Jeremy may already be working on this!)
+- [ ] [If available check CRL](https://github.com/rolandshoemaker/gobservatory/blob/master/external/crlChecker/crl.go)
+  (periodically)
 - [ ] Send StatsD metrics somewhere
 - [ ] Full test suite!
 - [ ] Create tool to translate/seed new schema from old database
@@ -70,8 +79,8 @@ task, and hey, I'm a masochist I guess...
   - [x] ASN schema
   - [x] Chain schema
   - [x] OCSP/CRL certificate revocation schema
-  - [ ] Various certificate schemas
-    - [ ] Basic certificates (still needs work and probably more splitting stuff out...)
+  - [x] Various certificate schemas
+    - [x] Basic certificates (still needs work and probably more splitting stuff out...)
     - [x] Key usage
     - [x] Raw certificates (DER)
     - [x] Subject key identifier
@@ -92,7 +101,7 @@ task, and hey, I'm a masochist I guess...
     - [x] RSA public keys
     - [x] DSA public keys
     - [x] ECC public keys (only P-224, P-256, P-384, and P-521 curves)
-    - [ ] IssuingCertificateURL
+    - [x] IssuingCertificateURL
     - [x] OCSP endpoints
     - [x] CRL endpoints
     - [x] Policy OIDs
@@ -125,12 +134,8 @@ task, and hey, I'm a masochist I guess...
 - [x] Check that none of the certificates have been revoked before responding to client
 - [ ] Graceful shutdown
 
-### Certificate/chain parsing
+### Chain parsing
 
-- [ ] Parse all the interesting stuff out of the certificates (basically just
-  thanks Golang `^_^`)
-  - [ ] [If available use OCSP to check if certificate is revoked](https://github.com/rolandshoemaker/gobservatory/blob/master/external/ocspChecker/ocsp.go)
-  - [ ] [If available check CRL](https://github.com/rolandshoemaker/gobservatory/blob/master/external/crlChecker/crl.go)
 - [x] Generate valid chains for different root pools
   - [x] Check trans-validity (this is much more confusing than I first thought,
     I *think* my current implementation may work if the trans pool contains the

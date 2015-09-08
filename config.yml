@@ -15,3 +15,9 @@ statsd:
   port: 8125
 
 dbURI: something
+
+submissionWorkers: 5
+
+nssPoolPEM: roots/nss_list.pem
+msPoolPEM: roots/nss_list.pem
+transPoolPEM: roots/nss_list.pem

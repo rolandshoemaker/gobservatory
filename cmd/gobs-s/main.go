@@ -30,7 +30,11 @@ type config struct {
 	StatsD struct {
 		core.ServerConfig `yaml:",inline"`
 	} `yaml:"statsd"`
-	DbURI string `yaml:"dbURI"`
+	DbURI     string `yaml:"dbURI"`
+	Workers   int    `yaml:"submissionWorkers"`
+	NSSPool   string `yaml:"nssPoolPEM"`
+	MSPool    string `yaml:"msPoolPEM"`
+	TransPool string `yaml:"transPoolPEM"`
 }
 
 func main() {
@@ -52,23 +56,46 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	asnFinder := asnFinder.New(c.WHOIS.Host, c.WHOIS.Port, whoisTimeout, whoisKeepAlive)
+	asnFinder := asnFinder.New(
+		c.WHOIS.Host,
+		c.WHOIS.Port,
+		whoisTimeout,
+		whoisKeepAlive,
+	)
 	database, err := db.New()
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	nssPool, err := core.PoolFromPEM("roots/nss_list.pem")
+	nssPool, err := core.PoolFromPEM(c.NSSPool)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	msPool, err := core.PoolFromPEM(c.MSPool)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	transPool, err := core.PoolFromPEM(c.TransPool)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
-	obs := submission.New(nssPool, nil, c.SubmissionAPI.Host, c.SubmissionAPI.Port, asnFinder, database)
-	go func() {
-		obs.ParseSubmissions()
-	}()
+	obs := submission.New(
+		nssPool,
+		msPool,
+		transPool,
+		c.SubmissionAPI.Host,
+		c.SubmissionAPI.Port,
+		asnFinder,
+		database,
+	)
+	for i := 0; i < c.Workers; i++ {
+		go obs.ParseSubmissions()
+	}
 	err = obs.Serve("", "")
 	if err != nil {
 		fmt.Println(err)

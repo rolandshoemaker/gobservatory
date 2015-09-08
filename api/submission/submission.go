@@ -460,8 +460,14 @@ type API struct {
 }
 
 // New creates a new submission API
-func New(nssPool, msPool *x509.CertPool, apiHost, apiPort string, asnFinder *asnFinder.Finder, db *db.Database) *API {
-	obs := &API{asnFinder: asnFinder, db: db}
+func New(nssPool, msPool, transPool *x509.CertPool, apiHost, apiPort string, asnFinder *asnFinder.Finder, db *db.Database) *API {
+	obs := &API{
+		asnFinder: asnFinder,
+		db:        db,
+		nssPool:   nssPool,
+		msPool:    msPool,
+		transPool: transPool,
+	}
 	m := http.NewServeMux()
 	m.HandleFunc("/submit_cert", obs.submissionHandler)
 	obs.Server = &http.Server{Addr: net.JoinHostPort(apiHost, apiPort), Handler: m}
