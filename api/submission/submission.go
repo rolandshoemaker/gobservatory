@@ -274,7 +274,7 @@ func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certi
 				err = a.db.AddRSAKey(&db.RSAKey{
 					CertificateFingerprint: fingerprint,
 					KeyFingerprint:         keyFingerprint,
-					ModulusSize:            t.N.BitLen(), // XXX: FIX ME!
+					ModulusSize:            t.N.BitLen(),
 					Modulus:                t.N.Bytes(),
 					Exponent:               t.E,
 				})
