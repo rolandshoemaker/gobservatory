@@ -235,6 +235,7 @@ func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certi
 			return err
 		}
 
+		// Raw certificate because why not
 		err = a.db.AddRawCertificate(&db.RawCertificate{
 			CertificateFingerprint: fingerprint,
 			DER: cert.Raw,
@@ -244,6 +245,7 @@ func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certi
 			fmt.Println(err)
 		}
 
+		// Key IDs
 		err = a.db.AddAuthorityKeyID(&db.AuthorityKeyID{
 			CertificateFingerprint: fingerprint,
 			KeyIdentifier:          cert.AuthorityKeyId,
@@ -261,15 +263,7 @@ func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certi
 			fmt.Println(err)
 		}
 
-		err = a.db.AddKeyUsage(&db.KeyUsage{
-			CertificateFingerprint: fingerprint,
-			KeyUsage:               uint8(cert.KeyUsage),
-		})
-		if err != nil {
-			// Continue
-			fmt.Println(err)
-		}
-
+		// Public key
 		keyFingerprint, err := core.FingerprintKey(cert.PublicKey)
 		if err != nil {
 			// Continue
@@ -277,7 +271,6 @@ func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certi
 		} else {
 			switch t := cert.PublicKey.(type) {
 			case *rsa.PublicKey:
-				// AddRSAKey
 				err = a.db.AddRSAKey(&db.RSAKey{
 					CertificateFingerprint: fingerprint,
 					KeyFingerprint:         keyFingerprint,
@@ -286,13 +279,11 @@ func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certi
 					Exponent: t.E,
 				})
 			case *dsa.PublicKey:
-				// AddDSAKey
 				err = a.db.AddDSAKey(&db.DSAKey{
 					CertificateFingerprint: fingerprint,
 					KeyFingerprint:         keyFingerprint,
 				})
 			case *ecdsa.PublicKey:
-				// AddECDSAKey
 				err = a.db.AddECDSAKey(&db.ECDSAKey{
 					CertificateFingerprint: fingerprint,
 					KeyFingerprint:         keyFingerprint,
@@ -307,6 +298,7 @@ func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certi
 			}
 		}
 
+		// Names sections
 		err = a.db.AddDNSNames(fingerprint, cert.DNSNames)
 		if err != nil {
 			// Continue
@@ -322,7 +314,13 @@ func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certi
 			// Continue
 			fmt.Println(err)
 		}
+		// AddConstrainedDNSNames
 
+		// Remote revocation services
+		// AddOCSPEndpoints
+		// AddCRLEndpoints
+
+		// Subject sections
 		err = a.db.AddCommonName(&db.CommonName{
 			CertificateFingerprint: fingerprint,
 			Name: cert.Subject.CommonName,
@@ -331,18 +329,29 @@ func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certi
 			// Continue
 			fmt.Println(err)
 		}
-		// AddCountries
-		// AddOrganizations
-		// AddOrganizationalUnits
-		// AddLocalities
-		// AddProvinces
+		err = a.db.AddCountries(fingerprint, cert.Subject.Country)
+		if err != nil {
+			// Continue
+			fmt.Println(err)
+		}
+		err = a.db.AddOrganizations(fingerprint, cert.Subject.Organization)
+		err = a.db.AddOrganizationalUnits(fingerprint, cert.Subject.OrganizationalUnit)
+		err = a.db.AddLocalities(fingerprint, cert.Subject.Locality)
+		err = a.db.AddProvinces(fingerprint, cert.Subject.Province)
 
+		// Various identifiers and extensions
+		// AddPolicyIdentifiers
+		err = a.db.AddKeyUsage(&db.KeyUsage{
+			CertificateFingerprint: fingerprint,
+			KeyUsage:               uint8(cert.KeyUsage),
+		})
+		if err != nil {
+			// Continue
+			fmt.Println(err)
+		}
 		// AddSubjectExtensions
 		// AddCertificateExtensions
-		// AddOCSPEndpoints
-		// AddCRLEndpoints
-		// AddConstrainedDNSNames
-		// AddPolicyIdentifiers
+
 	} else if err != nil {
 		return err
 	}

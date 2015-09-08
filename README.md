@@ -86,6 +86,7 @@ task, and hey, I'm a masochist I guess...
     - [x] RSA public keys
     - [x] DSA public keys
     - [x] ECC public keys (only P-224, P-256, P-384, and P-521 curves)
+    - [ ] IssuingCertificateURL
     - [x] OCSP endpoints
     - [x] CRL endpoints
     - [x] Policy OIDs

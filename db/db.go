@@ -29,11 +29,32 @@ func New() (*Database, error) {
 	}
 
 	dbmap := &gorp.DbMap{Db: db, Dialect: gorp.MySQLDialect{Engine: "InnoDB", Encoding: "UTF8"}}
+	dbmap.AddTableWithName(ASN{}, "asns")
 	dbmap.AddTableWithName(RevokedCertificate{}, "revoked_certificates")
-	dbmap.AddTableWithName(Report{}, "reports")
 	dbmap.AddTableWithName(Certificate{}, "certificates")
 	dbmap.AddTableWithName(RawCertificate{}, "raw_certificates")
+	dbmap.AddTableWithName(AuthorityKeyID{}, "authority_key_ids")
+	dbmap.AddTableWithName(SubjectKeyID{}, "subject_key_ids")
+	dbmap.AddTableWithName(RSAKey{}, "rsa_keys")
+	dbmap.AddTableWithName(DSAKey{}, "dsa_keys")
+	dbmap.AddTableWithName(ECDSAKey{}, "ecdsa_keys")
 	dbmap.AddTableWithName(DNSName{}, "dns_names")
+	dbmap.AddTableWithName(IPAddress{}, "ip_addresses")
+	dbmap.AddTableWithName(EmailAddress{}, "email_addresses")
+	dbmap.AddTableWithName(CommonName{}, "common_names")
+	dbmap.AddTableWithName(Country{}, "countries")
+	dbmap.AddTableWithName(Organization{}, "organizations")
+	dbmap.AddTableWithName(OrganizationalUnit{}, "organizational_units")
+	dbmap.AddTableWithName(Locality{}, "localities")
+	dbmap.AddTableWithName(Province{}, "provinces")
+	dbmap.AddTableWithName(SubjectExtension{}, "subject_extensions")
+	dbmap.AddTableWithName(CertificateExtension{}, "certificate_extensions")
+	dbmap.AddTableWithName(IssuingCertificateURL{}, "issuing_certificate_urls")
+	dbmap.AddTableWithName(OCSPEndpoint{}, "ocsp_endpoint")
+	dbmap.AddTableWithName(CRLEndpoint{}, "crl_endpoint")
+	dbmap.AddTableWithName(ConstrainedName{}, "constrained_names")
+	dbmap.AddTableWithName(PolicyIdentifier{}, "policy_identifiers")
+	dbmap.AddTableWithName(Report{}, "reports")
 
 	// XXX: DEBUG
 	// dbmap.TraceOn("SQL", log.New(os.Stdout, "[SQL] ", log.Flags()))
@@ -210,19 +231,93 @@ func (db *Database) AddCommonName(common *CommonName) error {
 	return db.m.Insert(common)
 }
 
-// AddCountries
+// AddCountries adds subject countries from a certificate
+func (db *Database) AddCountries(fingerprint []byte, countries []string) error {
+	for _, country := range countries {
+		err := db.m.Insert(&Country{
+			CertificateFingerprint: fingerprint,
+			Country:                country,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-// AddOrganizations
+// AddOrganizations adds subject organizations from a certificate
+func (db *Database) AddOrganizations(fingerprint []byte, organizations []string) error {
+	for _, organization := range organizations {
+		err := db.m.Insert(&Organization{
+			CertificateFingerprint: fingerprint,
+			Organization:           organization,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-// AddOrganizationalUnits
+// AddOrganizationalUnits adds subject organizational units from a certificate
+func (db *Database) AddOrganizationalUnits(fingerprint []byte, organizationalUnits []string) error {
+	for _, organizationalUnit := range organizationalUnits {
+		err := db.m.Insert(&OrganizationalUnit{
+			CertificateFingerprint: fingerprint,
+			OrganizationalUnit:     organizationalUnit,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-// AddLocalities
+// AddLocalities adds subject localities from a certificate
+func (db *Database) AddLocalities(fingerprint []byte, localities []string) error {
+	for _, locality := range localities {
+		err := db.m.Insert(&Locality{
+			CertificateFingerprint: fingerprint,
+			Locality:               locality,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-// AddProvinces
+// AddProvinces adds subject provinces from a certificate
+func (db *Database) AddProvinces(fingerprint []byte, provinces []string) error {
+	for _, province := range provinces {
+		err := db.m.Insert(&Province{
+			CertificateFingerprint: fingerprint,
+			Province:               province,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 // AddSubjectExtensions
 
 // AddCertificateExtensions
+
+// AddIssuingCertificateURL adds issuing certificate URLs from a certificate
+func (db *Database) AddIssuingCertificateURL(fingerprint []byte, urls []string) error {
+	for _, url := range urls {
+		err := db.m.Insert(&IssuingCertificateURL{
+			CertificateFingerprint: fingerprint,
+			URL: url,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 // AddOCSPEndpoints
 

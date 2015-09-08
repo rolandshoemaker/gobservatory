@@ -129,25 +129,31 @@ type CommonName struct {
 	Name                   string `db:"name"`
 }
 
-// Organization describes a organization tkane from a submitted certificate
+// Country describes a subject country tkane from a submitted certificate
+type Country struct {
+	CertificateFingerprint []byte `db:"certificate_fingerprint"`
+	Country                string `db:"country"`
+}
+
+// Organization describes a subject organization taken from a submitted certificate
 type Organization struct {
 	CertificateFingerprint []byte `db:"certificate_fingerprint"`
 	Organization           string `db:"organization"`
 }
 
-// OrganizationalUnit describes a organizational unit taken from a submitted certificate
+// OrganizationalUnit describes a subject organizational unit taken from a submitted certificate
 type OrganizationalUnit struct {
 	CertificateFingerprint []byte `db:"certificate_fingerprint"`
 	OrganizationalUnit     string `db:"organizational_unit"`
 }
 
-// Locality describes a locality taken from a submitted certificate
+// Locality describes a subject locality taken from a submitted certificate
 type Locality struct {
 	CertificateFingerprint []byte `db:"certificate_fingerprint"`
 	Locality               string `db:"locality"`
 }
 
-// Province describes a province taken from a submitted certificate
+// Province describes a subject province taken from a submitted certificate
 type Province struct {
 	CertificateFingerprint []byte `db:"certificate_fingerprint"`
 	Province               string `db:"province"`
@@ -166,6 +172,12 @@ type CertificateExtension struct {
 	Identifier             string `db:"identifier"`
 	Critical               bool   `db:"critical"`
 	Value                  []byte `db:"value"`
+}
+
+// IssuingCertificateURL describes a issuing certificate url taken from a submitted certificate
+type IssuingCertificateURL struct {
+	CertificateFingerprint []byte `db:"certificate_fingerprint"`
+	URL                    string `db:"url"`
 }
 
 // OCSPEndpoint describes a OCSP server taken from a submitted certificate

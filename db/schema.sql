@@ -85,7 +85,7 @@ CREATE TABLE `raw_certificates` (
 --   key.
 --
 
-CREATE TABLE `authority_key_id` (
+CREATE TABLE `authority_key_ids` (
   `certificate_fingerprint` binary(32) NOT NULL,
   `key_identifier` blob NOT NULL,
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
@@ -97,7 +97,7 @@ CREATE TABLE `authority_key_id` (
 --   key.
 --
 
-CREATE TABLE `subject_key_id` (
+CREATE TABLE `subject_key_ids` (
   `certificate_fingerprint` binary(32) NOT NULL,
   `key_identifier` blob NOT NULL,
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
@@ -300,6 +300,18 @@ CREATE TABLE `certificate_extensions` (
   `value` blob NOT NULL,
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_certificate_extensions` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
+
+-- Issuing certificate URLs
+--   Contains issuing certificate URLs taken from a certificate linked by the
+--   `certificate_fingerprint` key.
+--
+
+CREATE TABLE `issuing_certificate_urls` (
+  `certificate_fingerprint` binary(32) NOT NULL,
+  `url` varchar(256) NOT NULL,
+  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
+  CONSTRAINT `fingerprint_issuing_certificate_urls` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
 -- OCSP endpoints
