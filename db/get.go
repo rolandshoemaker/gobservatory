@@ -26,6 +26,22 @@ func (db *Database) IsRevoked(fingerprint []byte) (bool, string, error) {
 	return true, core.RevocationReasons[reovcationReason], nil
 }
 
+// ChainExists checks if a chain has already been added to the database
+func (db *Database) ChainExists(fingerprint []byte) (bool, error) {
+	var count int
+	err := db.m.SelectOne(
+		&count,
+		"SELECT count(fingerprint) FROM chains WHERE fingerprint = :fingerprint",
+		map[string]interface{}{
+			"fingerprint": fingerprint,
+		},
+	)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, err
+}
+
 // CertificateExists checks if a certificate has already been added to the database
 func (db *Database) CertificateExists(fingerprint []byte) (bool, error) {
 	var count int

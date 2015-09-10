@@ -3,11 +3,13 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/signal"
 	"sync"
 	"time"
 
+	"github.com/cactus/go-statsd-client/statsd"
 	"github.com/rolandshoemaker/gobservatory/Godeps/_workspace/src/gopkg.in/yaml.v2"
 
 	"github.com/rolandshoemaker/gobservatory/api/submission"
@@ -86,6 +88,12 @@ func main() {
 		fmt.Println(err)
 		return
 	}
+	stats, err := statsd.NewClient(net.JoinHostPort(c.StatsD.Host, c.StatsD.Port), "gobservatory")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	go core.ProfileCmd(stats)
 	obs := submission.New(
 		nssPool,
 		msPool,
@@ -94,6 +102,7 @@ func main() {
 		c.SubmissionAPI.Port,
 		asnFinder,
 		database,
+		stats,
 	)
 
 	wg := new(sync.WaitGroup)

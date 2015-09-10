@@ -37,6 +37,7 @@ func New() (*Database, error) {
 	dbmap.AddTableWithName(DNSName{}, "dns_names")
 	dbmap.AddTableWithName(IPAddress{}, "ip_addresses")
 	dbmap.AddTableWithName(EmailAddress{}, "email_addresses")
+	dbmap.AddTableWithName(SerialNumber{}, "serial_numbers")
 	dbmap.AddTableWithName(CommonName{}, "common_names")
 	dbmap.AddTableWithName(Country{}, "countries")
 	dbmap.AddTableWithName(Organization{}, "organizations")

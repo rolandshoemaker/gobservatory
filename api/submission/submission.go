@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cactus/go-statsd-client/statsd"
 	"github.com/rolandshoemaker/gobservatory/core"
 	"github.com/rolandshoemaker/gobservatory/db"
 	"github.com/rolandshoemaker/gobservatory/external/asnFinder"
@@ -67,18 +68,26 @@ func formToRequest(args url.Values) (sr submissionRequest, err error) {
 }
 
 func (a *API) submissionHandler(w http.ResponseWriter, r *http.Request) {
+	a.stats.Inc("submission.http.rate", 1, 1.0)
+	start := time.Now()
+	defer func() {
+		a.stats.TimingDuration("submission.http.latency", time.Since(start), 1.0)
+	}()
 	// XXX: Debugging statements
 	fmt.Println("REQUEST!")
 	err := r.ParseForm()
 	if err != nil {
+		a.stats.Inc("submission.http.error-rate", 1, 1.0)
 		fmt.Println(err)
 		return
 	}
 	sr, err := formToRequest(r.Form)
 	if err != nil {
+		a.stats.Inc("submission.http.error-rate", 1, 1.0)
 		fmt.Println(err)
 		return
 	}
+	a.stats.Inc("submission.http.certificates.rate", int64(len(sr.Certs)), 1.0)
 	sr.ClientIP = net.ParseIP(r.RemoteAddr)
 
 	// Check if cert has been revoked
@@ -91,18 +100,24 @@ func (a *API) submissionHandler(w http.ResponseWriter, r *http.Request) {
 				Reason: reason,
 			})
 		} else if err != nil {
-			// BAD
+			// BAD, but continue on our way...
+			a.stats.Inc("submission.http.error-rate", 1, 1.0)
 			fmt.Println(err)
-			return
 		}
 	}
 
+	// ...I know it's not reading but channels allow concurrent writes so this is
+	// still safe
+	a.sMu.RLock()
+	defer a.sMu.RUnlock()
 	// Add submission to channel for workers to process
 	a.submissions <- sr
 
 	if len(revocationInfo) > 0 {
+		a.stats.Inc("submission.http.revoked-certificates-seen", int64(len(revocationInfo)), 1.0)
 		revokedJSON, err := json.Marshal(revocationInfo)
 		if err != nil {
+			a.stats.Inc("submission.http.error-rate", 1, 1.0)
 			// BAD
 			fmt.Println(err)
 			fmt.Fprintf(w, "Couldn't marshal revocation information: %s", err)
@@ -125,11 +140,14 @@ func (a *API) ParseSubmissions(wg *sync.WaitGroup) error {
 			// Log error don't return method so we can try to get everything in
 			fmt.Println(err)
 		}
+		parsingStarted := time.Now()
 		err = a.addCertificates(submission.Certs, asnNum, submission.ServerIP)
 		if err != nil {
 			// Log error don't return method so we can try to get everything in...
 			fmt.Println(err)
 		}
+		a.stats.TimingDuration("submission.parsing.latency", time.Since(parsingStarted), 1.0)
+		a.stats.Inc("submission.parsing.chains.rate", 1, 1.0)
 	}
 
 	return nil
@@ -167,7 +185,13 @@ func (a *API) generateChainMeta(certs []*x509.Certificate) (db.CertificateChainM
 	// If no valid chains were produced check for trans-validity or add the chain
 	// as invalid.
 	nssValid := len(nssChains) > 0
+	if nssValid {
+		a.stats.Inc("submission.parsing.chains.nss-valid", 1, 1.0)
+	}
 	msValid := len(msChains) > 0
+	if msValid {
+		a.stats.Inc("submission.parsing.chains.ms-valid", 1, 1.0)
+	}
 	if !nssValid && !msValid {
 		trans := false
 		// Check for trans-validity
@@ -180,9 +204,9 @@ func (a *API) generateChainMeta(certs []*x509.Certificate) (db.CertificateChainM
 		}
 		if len(transChains) > 0 {
 			trans = true
-		} else if err != nil {
-			// XXX: Debugging statements
-			fmt.Println("TRANS --", err)
+			a.stats.Inc("submission.parsing.chains.trans-valid", 1, 1.0)
+		} else {
+			a.stats.Inc("submission.parsing.chains.invalid", 1, 1.0)
 		}
 
 		// Generate fingerprint and return
@@ -198,6 +222,7 @@ func (a *API) generateChainMeta(certs []*x509.Certificate) (db.CertificateChainM
 			TransValidity: trans,
 		}, true
 	}
+
 	var chainBytes []byte
 	for _, cert := range certs {
 		chainBytes = append(chainBytes, cert.Raw...)
@@ -210,7 +235,8 @@ func (a *API) generateChainMeta(certs []*x509.Certificate) (db.CertificateChainM
 		NssValidity: nssValid,
 		MsValidity:  msValid,
 	}
-	return chain, nssValid || msValid
+	a.stats.Inc("submission.parsing.chains.valid", 1, 1.0)
+	return chain, true
 }
 
 func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certificate, valid, leaf bool, asnNum int, now time.Time, serverIP net.IP) error {
@@ -218,134 +244,162 @@ func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certi
 	// decomposition
 	fingerprint := core.Fingerprint(cert)
 
-	if exists, err := a.db.CertificateExists(fingerprint); err == nil && !exists {
-		// Decompsoe certificate into all the different bits we want
-		err = a.db.AddCertificate(&db.Certificate{
-			Fingerprint:      fingerprint,
-			Valid:            valid,
-			CertVersion:      uint8(cert.Version),
-			Root:             cert.IsCA,
-			BasicConstraints: cert.BasicConstraintsValid,
-			MaxPathLen:       cert.MaxPathLen,
-			MaxPathLenZero:   cert.MaxPathLenZero,
-			SignatureAlg:     uint8(cert.SignatureAlgorithm),
-			Signature:        cert.Signature,
-			NotBefore:        cert.NotBefore,
-			NotAfter:         cert.NotAfter,
-			Revoked:          false, // XXX: Without doing OCSP/CRL checks this'll have to do for now
-		})
-		if err != nil {
-			return err
-		}
+	if exists, err := a.db.CertificateExists(fingerprint); err == nil && exists {
+		a.stats.Inc("submission.parsing.certificates.previously-seen", 1.0, 1)
+		return nil
+	} else {
+		return err
+	}
 
-		// XXX: All of the db.Add... operations below could be run concurrently to
-		//      improve performance somewhat (MySQL might not like this too much,
-		//      but my gut says InnoDB should be able to handle it).
+	// Decompsoe certificate into all the different bits we want
+	err := a.db.AddCertificate(&db.Certificate{
+		Fingerprint:      fingerprint,
+		Valid:            valid,
+		CertVersion:      uint8(cert.Version),
+		Root:             cert.IsCA,
+		BasicConstraints: cert.BasicConstraintsValid,
+		MaxPathLen:       cert.MaxPathLen,
+		MaxPathLenZero:   cert.MaxPathLenZero,
+		SignatureAlg:     uint8(cert.SignatureAlgorithm),
+		Signature:        cert.Signature,
+		NotBefore:        cert.NotBefore,
+		NotAfter:         cert.NotAfter,
+		Revoked:          false, // XXX: Without doing OCSP/CRL checks this'll have to do for now
+	})
+	if err != nil {
+		return err
+	}
 
-		// Raw certificate because why not
-		err = a.db.AddRawCertificate(&db.RawCertificate{
-			CertificateFingerprint: fingerprint,
-			DER: cert.Raw,
-		})
-		if err != nil {
-			// Continue
-			fmt.Println(err)
-		}
-
-		// Key IDs
-		// XXX: I forget which one of these can be nil sometimes, so for now just
-		//      check both...
-		if cert.AuthorityKeyId != nil {
-			err = a.db.AddAuthorityKeyID(&db.AuthorityKeyID{
-				CertificateFingerprint: fingerprint,
-				KeyIdentifier:          cert.AuthorityKeyId,
-			})
-			if err != nil {
-				// Continue
-				fmt.Println(err)
-			}
-		}
-		if cert.SubjectKeyId != nil {
-			err = a.db.AddSubjectKeyID(&db.SubjectKeyID{
-				CertificateFingerprint: fingerprint,
-				KeyIdentifier:          cert.SubjectKeyId,
-			})
-			if err != nil {
-				// Continue
-				fmt.Println(err)
-			}
-		}
-
-		// Public key
-		keyFingerprint, err := core.FingerprintKey(cert.PublicKey)
-		if err != nil {
-			// Continue
-			fmt.Println(err)
+	if time.Now().After(cert.NotAfter) {
+		a.stats.Inc("submission.parsing.certificates.expired", 1, 1.0)
+	} else {
+		if valid {
+			a.stats.Inc("submission.parsing.certificates.valid", 1, 1.0)
 		} else {
-			switch t := cert.PublicKey.(type) {
-			case *rsa.PublicKey:
-				err = a.db.AddRSAKey(&db.RSAKey{
-					CertificateFingerprint: fingerprint,
-					KeyFingerprint:         keyFingerprint,
-					ModulusSize:            t.N.BitLen(),
-					Modulus:                t.N.Bytes(),
-					Exponent:               t.E,
-				})
-			case *dsa.PublicKey:
-				err = a.db.AddDSAKey(&db.DSAKey{
-					CertificateFingerprint: fingerprint,
-					KeyFingerprint:         keyFingerprint,
-				})
-			case *ecdsa.PublicKey:
-				err = a.db.AddECDSAKey(&db.ECDSAKey{
-					CertificateFingerprint: fingerprint,
-					KeyFingerprint:         keyFingerprint,
-					Curve:                  t.Params().Name,
-					X:                      t.X.Bytes(),
-					Y:                      t.Y.Bytes(),
-				})
-			}
-			if err != nil {
-				// Continue
-				fmt.Println(err)
-			}
+			a.stats.Inc("submission.parsing.certificates.invalid", 1, 1.0)
 		}
+	}
 
-		// Names sections
-		err = a.db.AddDNSNames(fingerprint, cert.DNSNames)
-		if err != nil {
-			// Continue
-			fmt.Println(err)
-		}
-		err = a.db.AddIPAddresses(fingerprint, cert.IPAddresses)
-		if err != nil {
-			// Continue
-			fmt.Println(err)
-		}
-		err = a.db.AddEmailAddresses(fingerprint, cert.EmailAddresses)
-		if err != nil {
-			// Continue
-			fmt.Println(err)
-		}
-		err = a.db.AddConstrainedDNSNames(fingerprint, cert.PermittedDNSDomains)
-		if err != nil {
-			// Continue
-			fmt.Println(err)
-		}
+	if cert.IsCA && valid {
+		a.stats.Inc("submission.parsing.certificates.roots.rate", 1, 1.0)
+	}
 
-		// Remote revocation services
-		err = a.db.AddOCSPEndpoints(fingerprint, cert.OCSPServer)
-		if err != nil {
-			// Continue
-			fmt.Println(err)
-		}
-		err = a.db.AddCRLEndpoints(fingerprint, cert.CRLDistributionPoints)
-		if err != nil {
-			// Continue
-			fmt.Println(err)
-		}
+	if sig, ok := core.SignatureAlgorithms[cert.SignatureAlgorithm]; ok {
+		a.stats.Inc(fmt.Sprintf("submission.parsing.certificates.signature-algorithm.%s", sig), 1, 1.0)
+	}
 
-		// Subject sections
+	// XXX: All of the db.Add... operations below could be run concurrently to
+	//      improve performance somewhat (MySQL might not like this too much,
+	//      but my gut says InnoDB should be able to handle it).
+
+	// Raw certificate because why not
+	err = a.db.AddRawCertificate(&db.RawCertificate{
+		CertificateFingerprint: fingerprint,
+		DER: cert.Raw,
+	})
+	if err != nil {
+		// Continue
+		fmt.Println(err)
+	}
+
+	// Key IDs
+	// XXX: I forget which one of these can be nil sometimes, so for now just
+	//      check both...
+	if cert.AuthorityKeyId != nil {
+		err = a.db.AddAuthorityKeyID(&db.AuthorityKeyID{
+			CertificateFingerprint: fingerprint,
+			KeyIdentifier:          cert.AuthorityKeyId,
+		})
+		if err != nil {
+			// Continue
+			fmt.Println(err)
+		}
+	}
+	if cert.SubjectKeyId != nil {
+		err = a.db.AddSubjectKeyID(&db.SubjectKeyID{
+			CertificateFingerprint: fingerprint,
+			KeyIdentifier:          cert.SubjectKeyId,
+		})
+		if err != nil {
+			// Continue
+			fmt.Println(err)
+		}
+	}
+
+	// Public key
+	keyFingerprint, err := core.FingerprintKey(cert.PublicKey)
+	if err != nil {
+		// Continue
+		fmt.Println(err)
+	} else {
+		switch t := cert.PublicKey.(type) {
+		case *rsa.PublicKey:
+			a.stats.Inc("submission.parsing.certificates.key-types.RSA", 1, 1.0)
+			err = a.db.AddRSAKey(&db.RSAKey{
+				CertificateFingerprint: fingerprint,
+				KeyFingerprint:         keyFingerprint,
+				ModulusSize:            t.N.BitLen(),
+				Modulus:                t.N.Bytes(),
+				Exponent:               t.E,
+			})
+		case *dsa.PublicKey:
+			a.stats.Inc("submission.parsing.certificates.key-types.DSA", 1, 1.0)
+			err = a.db.AddDSAKey(&db.DSAKey{
+				CertificateFingerprint: fingerprint,
+				KeyFingerprint:         keyFingerprint,
+			})
+		case *ecdsa.PublicKey:
+			a.stats.Inc("submission.parsing.certificates.key-types.ECDSA", 1, 1.0)
+			err = a.db.AddECDSAKey(&db.ECDSAKey{
+				CertificateFingerprint: fingerprint,
+				KeyFingerprint:         keyFingerprint,
+				Curve:                  t.Params().Name,
+				X:                      t.X.Bytes(),
+				Y:                      t.Y.Bytes(),
+			})
+		}
+		if err != nil {
+			// Continue
+			fmt.Println(err)
+		}
+	}
+
+	// Names sections
+	err = a.db.AddDNSNames(fingerprint, cert.DNSNames)
+	if err != nil {
+		// Continue
+		fmt.Println(err)
+	}
+	err = a.db.AddIPAddresses(fingerprint, cert.IPAddresses)
+	if err != nil {
+		// Continue
+		fmt.Println(err)
+	}
+	err = a.db.AddEmailAddresses(fingerprint, cert.EmailAddresses)
+	if err != nil {
+		// Continue
+		fmt.Println(err)
+	}
+	err = a.db.AddConstrainedDNSNames(fingerprint, cert.PermittedDNSDomains)
+	if err != nil {
+		// Continue
+		fmt.Println(err)
+	}
+
+	// Remote revocation services
+	err = a.db.AddOCSPEndpoints(fingerprint, cert.OCSPServer)
+	if err != nil {
+		// Continue
+		fmt.Println(err)
+	}
+	err = a.db.AddCRLEndpoints(fingerprint, cert.CRLDistributionPoints)
+	if err != nil {
+		// Continue
+		fmt.Println(err)
+	}
+
+	// Subject sections
+	if cert.SerialNumber != nil {
 		err = a.db.AddSerialNumber(&db.SerialNumber{
 			CertificateFingerprint: fingerprint,
 			Serial:                 cert.SerialNumber.Bytes(),
@@ -354,51 +408,53 @@ func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certi
 			// Continue
 			fmt.Println(err)
 		}
-		err = a.db.AddCommonName(&db.CommonName{
-			CertificateFingerprint: fingerprint,
-			Name: cert.Subject.CommonName,
-		})
-		if err != nil {
-			// Continue
-			fmt.Println(err)
-		}
-		err = a.db.AddCountries(fingerprint, cert.Subject.Country)
-		if err != nil {
-			// Continue
-			fmt.Println(err)
-		}
-		err = a.db.AddOrganizations(fingerprint, cert.Subject.Organization)
-		err = a.db.AddOrganizationalUnits(fingerprint, cert.Subject.OrganizationalUnit)
-		err = a.db.AddLocalities(fingerprint, cert.Subject.Locality)
-		err = a.db.AddProvinces(fingerprint, cert.Subject.Province)
+	}
+	err = a.db.AddCommonName(&db.CommonName{
+		CertificateFingerprint: fingerprint,
+		Name: cert.Subject.CommonName,
+	})
+	if err != nil {
+		// Continue
+		fmt.Println(err)
+	}
+	err = a.db.AddCountries(fingerprint, cert.Subject.Country)
+	if err != nil {
+		// Continue
+		fmt.Println(err)
+	}
+	err = a.db.AddOrganizations(fingerprint, cert.Subject.Organization)
+	err = a.db.AddOrganizationalUnits(fingerprint, cert.Subject.OrganizationalUnit)
+	err = a.db.AddLocalities(fingerprint, cert.Subject.Locality)
+	err = a.db.AddProvinces(fingerprint, cert.Subject.Province)
 
-		// Various identifiers and extensions
-		err = a.db.AddPolicyIdentifiers(fingerprint, cert.PolicyIdentifiers)
-		if err != nil {
-			// Continue
-			fmt.Println(err)
-		}
-		err = a.db.AddKeyUsage(&db.KeyUsage{
-			CertificateFingerprint: fingerprint,
-			KeyUsage:               uint8(cert.KeyUsage),
-		})
-		if err != nil {
-			// Continue
-			fmt.Println(err)
-		}
-		err = a.db.AddSubjectExtensions(fingerprint, cert.Subject.Names)
-		if err != nil {
-			// Continue
-			fmt.Println(err)
-		}
-		err = a.db.AddCertificateExtensions(fingerprint, cert.Extensions)
-		if err != nil {
-			// Continue
-			fmt.Println(err)
-		}
-
-	} else if err != nil {
-		return err
+	// Various identifiers and extensions
+	err = a.db.AddPolicyIdentifiers(fingerprint, cert.PolicyIdentifiers)
+	if err != nil {
+		// Continue
+		fmt.Println(err)
+	}
+	err = a.db.AddKeyUsage(&db.KeyUsage{
+		CertificateFingerprint: fingerprint,
+		KeyUsage:               uint8(cert.KeyUsage),
+	})
+	if err != nil {
+		// Continue
+		fmt.Println(err)
+	}
+	err = a.db.AddSubjectExtensions(fingerprint, cert.Subject.Names)
+	if err != nil {
+		// Continue
+		fmt.Println(err)
+	}
+	err = a.db.AddCertificateExtensions(fingerprint, cert.Extensions)
+	if err != nil {
+		// Continue
+		fmt.Println(err)
+	}
+	err = a.db.AddIssuingCertificateURL(fingerprint, cert.IssuingCertificateURL)
+	if err != nil {
+		// Continue
+		fmt.Println(err)
 	}
 
 	// Add report
@@ -419,6 +475,11 @@ func (a *API) addCertificates(certs []*x509.Certificate, asnNum int, serverIP ne
 	fmt.Printf("ADDING [%d] CERTIFICATES!\n", len(certs))
 
 	chainMeta, valid := a.generateChainMeta(certs)
+
+	if exists, err := a.db.ChainExists(chainMeta.Fingerprint); err == nil && exists {
+		a.stats.Inc("submission.parsing.chains.previously-seen", 1, 1.0)
+		return nil
+	}
 	a.addChainMeta(chainMeta)
 
 	now := time.Now()
@@ -428,6 +489,7 @@ func (a *API) addCertificates(certs []*x509.Certificate, asnNum int, serverIP ne
 			// Log but don't break
 			fmt.Println(err)
 		}
+		a.stats.Inc("submission.parsing.certificates.rate", 1, 1.0)
 	}
 
 	return nil
@@ -439,10 +501,13 @@ func (a *API) addASN(asnFlag int, ip net.IP) (int, error) {
 	case -2: // XXX: ??? Check https everywhere / index.py to figure out whats needed
 		// XXX: Debugging statements
 		fmt.Println("ADDING ASN!")
+		a.stats.Inc("submission.asn-finder.rate", 1, 1.0)
+		asnFinderStarted := time.Now()
 		number, name, err := a.asnFinder.GetASN(ip)
 		if err != nil {
 			return -1, err
 		}
+		a.stats.TimingDuration("submission.asn-finder.latency", time.Since(asnFinderStarted), 1.0)
 		err = a.db.AddASN(number, name)
 		if err != nil {
 			return -1, err
@@ -482,6 +547,7 @@ func (a *API) Serve(certPath, keyPath string) (err error) {
 	if err != nil {
 		return err
 	}
+	a.listener = l
 	defer l.Close()
 	return srv.Serve(l)
 }
@@ -491,9 +557,12 @@ func (a *API) Serve(certPath, keyPath string) (err error) {
 func (a *API) Shutdown() error {
 	err := a.listener.Close()
 	if err != nil {
-		// Continue and close the channel anyway
+		// XXX: Continue and close the channel anyway, this may cause race induced
+		// panics so uh... yeah it should be fixed
 		fmt.Println(err)
 	}
+	a.sMu.Lock()
+	defer a.sMu.Unlock()
 	close(a.submissions)
 	return err
 }
@@ -503,6 +572,9 @@ type API struct {
 	db        *db.Database
 	asnFinder *asnFinder.Finder
 
+	// This a somewhat lightweight use case for a sync.RWMutex but it achieves the
+	// purpose and should be relatively performant
+	sMu         *sync.RWMutex
 	submissions chan submissionRequest
 
 	nssPool   *x509.CertPool
@@ -511,18 +583,21 @@ type API struct {
 
 	addr     string
 	listener net.Listener
+
+	stats statsd.Statter
 }
 
 // New creates a new submission API
-func New(nssPool, msPool, transPool *x509.CertPool, apiHost, apiPort string, asnFinder *asnFinder.Finder, db *db.Database) *API {
-	obs := &API{
-		asnFinder: asnFinder,
-		db:        db,
-		nssPool:   nssPool,
-		msPool:    msPool,
-		transPool: transPool,
+func New(nssPool, msPool, transPool *x509.CertPool, apiHost, apiPort string, asnFinder *asnFinder.Finder, db *db.Database, stats statsd.Statter) *API {
+	return &API{
+		asnFinder:   asnFinder,
+		db:          db,
+		nssPool:     nssPool,
+		msPool:      msPool,
+		transPool:   transPool,
+		sMu:         new(sync.RWMutex),
+		submissions: make(chan submissionRequest),
+		addr:        net.JoinHostPort(apiHost, apiPort),
+		stats:       stats,
 	}
-	obs.addr = net.JoinHostPort(apiHost, apiPort)
-	obs.submissions = make(chan submissionRequest)
-	return obs
 }

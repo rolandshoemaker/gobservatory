@@ -8,6 +8,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
+	"runtime"
+	"time"
+
+	"github.com/cactus/go-statsd-client/statsd"
 )
 
 // RevocationReasons maps reason codes to the text descriptions
@@ -25,6 +29,7 @@ var RevocationReasons = map[int]string{
 	10: "aAcompromise",
 }
 
+// ParsedSubjectOIDs maps OIDs that Golang parses
 var ParsedSubjectOIDs = map[string]bool{
 	"2.5.4.6":  true, // Country
 	"2.5.4.10": true, // Organization
@@ -35,6 +40,22 @@ var ParsedSubjectOIDs = map[string]bool{
 	"2.5.4.8":  true, // Province
 	"2.5.4.9":  true, // Street address
 	"2.5.4.17": true, // Postal code
+}
+
+// SignatureAlgorithms maps x509.SignatureAlgorithm's to their names
+var SignatureAlgorithms = map[x509.SignatureAlgorithm]string{
+	x509.MD2WithRSA:      "MD2-RSA",
+	x509.MD5WithRSA:      "MD5-RSA",
+	x509.SHA1WithRSA:     "SHA1-RSA",
+	x509.SHA256WithRSA:   "SHA256-RSA",
+	x509.SHA384WithRSA:   "SHA384-RSA",
+	x509.SHA512WithRSA:   "SHA512-RSA",
+	x509.DSAWithSHA1:     "SHA1-DSA",
+	x509.DSAWithSHA256:   "SHA256-DSA",
+	x509.ECDSAWithSHA1:   "SHA1-ECDSA",
+	x509.ECDSAWithSHA256: "SHA256-ECDSA",
+	x509.ECDSAWithSHA384: "SHA384-ECDSA",
+	x509.ECDSAWithSHA512: "SHA512-ECDSA",
 }
 
 // ServerConfig provides a simple reusable config most servers need
@@ -82,4 +103,28 @@ func FingerprintKey(key crypto.PublicKey) ([]byte, error) {
 // BigIntToString converts a *big.Int to a hex string
 func BigIntToString(bigInt *big.Int) string {
 	return fmt.Sprintf("%X", bigInt)
+}
+
+// ProfileCmd runs forever, sending Go runtime statistics to StatsD.
+func ProfileCmd(stats statsd.Statter) {
+	c := time.Tick(1 * time.Second)
+	for range c {
+		var memoryStats runtime.MemStats
+		runtime.ReadMemStats(&memoryStats)
+
+		stats.Gauge("Gostats.Goroutines", int64(runtime.NumGoroutine()), 1.0)
+
+		stats.Gauge("Gostats.Heap.Alloc", int64(memoryStats.HeapAlloc), 1.0)
+		stats.Gauge("Gostats.Heap.Objects", int64(memoryStats.HeapObjects), 1.0)
+		stats.Gauge("Gostats.Heap.Idle", int64(memoryStats.HeapIdle), 1.0)
+		stats.Gauge("Gostats.Heap.InUse", int64(memoryStats.HeapInuse), 1.0)
+		stats.Gauge("Gostats.Heap.Released", int64(memoryStats.HeapReleased), 1.0)
+
+		// Calculate average and last and convert from nanoseconds to milliseconds
+		gcPauseAvg := (int64(memoryStats.PauseTotalNs) / int64(len(memoryStats.PauseNs))) / 1000000
+		lastGC := int64(memoryStats.PauseNs[(memoryStats.NumGC+255)%256]) / 1000000
+		stats.Timing("Gostats.Gc.PauseAvg", gcPauseAvg, 1.0)
+		stats.Gauge("Gostats.Gc.LastPauseTook", lastGC, 1.0)
+		stats.Gauge("Gostats.Gc.NextAt", int64(memoryStats.NextGC), 1.0)
+	}
 }

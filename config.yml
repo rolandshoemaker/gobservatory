@@ -20,4 +20,4 @@ submissionWorkers: 5
 
 nssPoolPEM: roots/nss_list.pem
 msPoolPEM: roots/ms_list.pem
-transPoolPEM: roots/trans_list.pem
+transPoolPEM: roots/nss_list.pem

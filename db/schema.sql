@@ -35,7 +35,8 @@ CREATE TABLE `chains` (
 
 -- Revoked certificates
 --   Contains the fingerprints, revocation times, reasons, and if the revocation
---   was found by OCSP and/or CRL.
+--   was found by OCSP and/or CRL. A foreign key to 'certificates' isn't used
+--   here since A CRL may contain references to certificates we don't know about.
 
 CREATE TABLE `revoked_certificates` (
   `fingerprint` binary(32) NOT NULL,
@@ -49,7 +50,7 @@ CREATE TABLE `revoked_certificates` (
 -- Certificates
 --   Basic certificates, most certificate properties are stripped out to seperate
 --   tables what is left is the main key, 'fingerprint', and various other basic
---   information
+--   information.
 
 CREATE TABLE `certificates` (
   `fingerprint` binary(32) NOT NULL,
