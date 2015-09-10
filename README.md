@@ -53,12 +53,12 @@ is as far as I've tested so far.
 - [x] YAML config
 - [ ] Root pool retreival/loading tools
   - [x] Basic load from PEM method
-  - [ ] Generate trans-validity pool
   - [ ] Parsers
     - [ ] [NSS root list](https://hg.mozilla.org/mozilla-central/raw-file/tip/security/nss/lib/ckfw/builtins/certdata.txt)
       retriever/parser/loader (agl has a good [ref. tool](https://github.com/agl/extract-nss-root-certs))
     - [ ] MS root list retriever/parser/loader (catt has a useful set of scripts [here](https://github.com/kirei/catt/tree/master/scripts)
       to crib from))
+    - [ ] Trans validity root list (I think this has to be pulled from observed certificates?)
   - [ ] Dynamic reloading of root pools (RPC?)
 - [ ] [If available use OCSP to check if certificate is revoked](https://github.com/rolandshoemaker/gobservatory/blob/master/external/ocspChecker/ocsp.go)
   (periodically, Jeremy may already be working on this!)
@@ -89,7 +89,7 @@ is as far as I've tested so far.
     - [x] IPs
     - [x] Emails
     - [x] Subjects (Also split)
-      - [ ] Serial (?)
+      - [x] Serial
       - [x] Common names
       - [x] Countries
       - [x] Organizations
@@ -109,15 +109,15 @@ is as far as I've tested so far.
   - [ ] Inverse index mapping schemas (names -> certs, some of the cert splitting
     seems to basically accomplish this for us)
 - [x] Create database models for every schema
-- [ ] Add/Update methods for models
+- [x] Add/Update methods for models
   - [x] Add ASN
   - [x] Add chain
-  - [ ] Add (split) certificate
+  - [x] Add (split) certificate
     - [x] Basic section
     - [x] Raw certificate
     - [x] Basically everything else...
-    - [ ] Certificate extensions
-    - [ ] Subject extensions
+    - [x] Certificate extensions
+    - [x] Subject extensions
   - [x] Add submission report
 
 ### [Submission API](https://github.com/rolandshoemaker/gobservatory/blob/master/api/submission/submission.go)
@@ -132,11 +132,9 @@ is as far as I've tested so far.
 - [ ] Support all submission parameters (ASN/opt out/etc)
 - [ ] Actually do what all the parameters indicate
 - [x] Check that none of the certificates have been revoked before responding to client
-- [ ] Graceful shutdown
+- [x] Graceful shutdown
 
 ### Chain parsing
 
 - [x] Generate valid chains for different root pools
-  - [x] Check trans-validity (this is much more confusing than I first thought,
-    I *think* my current implementation may work if the trans pool contains the
-    needed intermediates, need to check with Jeremey...)
+  - [x] Check trans-validity
