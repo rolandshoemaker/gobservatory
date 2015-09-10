@@ -133,6 +133,7 @@ func (a *API) submissionHandler(w http.ResponseWriter, r *http.Request) {
 func (a *API) ParseSubmissions(wg *sync.WaitGroup) error {
 	defer wg.Done()
 	for submission := range a.submissions {
+		a.stats.Gauge("submission.parsing.waiting", int64(len(a.submissions)), 1.0)
 		// XXX: Debugging statements
 		fmt.Println("PARSING SUBMISSION!")
 		asnNum, err := a.addASN(submission.ASN, submission.ClientIP)
@@ -247,7 +248,7 @@ func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certi
 	if exists, err := a.db.CertificateExists(fingerprint); err == nil && exists {
 		a.stats.Inc("submission.parsing.certificates.previously-seen", 1.0, 1)
 		return nil
-	} else {
+	} else if err != nil {
 		return err
 	}
 
