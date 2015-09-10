@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
@@ -14,6 +15,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rolandshoemaker/gobservatory/core"
@@ -113,7 +115,8 @@ func (a *API) submissionHandler(w http.ResponseWriter, r *http.Request) {
 
 // ParseSubmissions starts a parsing worker that chews through API.submissions
 // and processes them, inserting the resulting information into the database
-func (a *API) ParseSubmissions() error {
+func (a *API) ParseSubmissions(wg *sync.WaitGroup) error {
+	defer wg.Done()
 	for submission := range a.submissions {
 		// XXX: Debugging statements
 		fmt.Println("PARSING SUBMISSION!")
@@ -343,6 +346,14 @@ func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certi
 		}
 
 		// Subject sections
+		err = a.db.AddSerialNumber(&db.SerialNumber{
+			CertificateFingerprint: fingerprint,
+			Serial:                 cert.SerialNumber.Bytes(),
+		})
+		if err != nil {
+			// Continue
+			fmt.Println(err)
+		}
 		err = a.db.AddCommonName(&db.CommonName{
 			CertificateFingerprint: fingerprint,
 			Name: cert.Subject.CommonName,
@@ -452,15 +463,39 @@ func (a *API) addChainMeta(chainMeta db.CertificateChainMeta) {
 
 // Serve starts the submission API either using HTTP or HTTPS
 func (a *API) Serve(certPath, keyPath string) (err error) {
+	m := http.NewServeMux()
+	m.HandleFunc("/submit_cert", a.submissionHandler)
+	srv := &http.Server{Addr: a.addr, Handler: m}
+
 	if certPath != "" && keyPath != "" {
-		err = a.Server.ListenAndServeTLS(certPath, keyPath)
-	} else {
-		err = a.Server.ListenAndServe()
+		cert, err := tls.LoadX509KeyPair(certPath, keyPath)
+		if err != nil {
+			return err
+		}
+		tlsConf := &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			NextProtos:   []string{"http/1.1"},
+		}
+		srv.TLSConfig = tlsConf
 	}
+	l, err := net.Listen("tcp", a.addr)
 	if err != nil {
 		return err
 	}
-	return nil
+	defer l.Close()
+	return srv.Serve(l)
+}
+
+// Shutdown gracefully shuts the server down, allowing any submissions remaining
+// in a.submissions to be processed
+func (a *API) Shutdown() error {
+	err := a.listener.Close()
+	if err != nil {
+		// Continue and close the channel anyway
+		fmt.Println(err)
+	}
+	close(a.submissions)
+	return err
 }
 
 // API defines the Observatory chain submission interface
@@ -474,7 +509,8 @@ type API struct {
 	msPool    *x509.CertPool
 	transPool *x509.CertPool
 
-	Server *http.Server
+	addr     string
+	listener net.Listener
 }
 
 // New creates a new submission API
@@ -486,9 +522,7 @@ func New(nssPool, msPool, transPool *x509.CertPool, apiHost, apiPort string, asn
 		msPool:    msPool,
 		transPool: transPool,
 	}
-	m := http.NewServeMux()
-	m.HandleFunc("/submit_cert", obs.submissionHandler)
-	obs.Server = &http.Server{Addr: net.JoinHostPort(apiHost, apiPort), Handler: m}
+	obs.addr = net.JoinHostPort(apiHost, apiPort)
 	obs.submissions = make(chan submissionRequest)
 	return obs
 }

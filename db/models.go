@@ -120,6 +120,12 @@ type EmailAddress struct {
 	Email                  string `db:"email"`
 }
 
+// SerialNumber describes a serial number of a submitted certificate
+type SerialNumber struct {
+	CertificateFingerprint []byte `db:"certificate_fingerprint"`
+	Serial                 []byte `db:"serial"`
+}
+
 // CommonName describes the common name of a submitted certificate
 type CommonName struct {
 	CertificateFingerprint []byte `db:"certificate_fingerprint"`

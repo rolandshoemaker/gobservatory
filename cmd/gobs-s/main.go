@@ -3,6 +3,9 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
+	"os/signal"
+	"sync"
 	"time"
 
 	"github.com/rolandshoemaker/gobservatory/Godeps/_workspace/src/gopkg.in/yaml.v2"
@@ -83,7 +86,6 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-
 	obs := submission.New(
 		nssPool,
 		msPool,
@@ -93,12 +95,30 @@ func main() {
 		asnFinder,
 		database,
 	)
+
+	wg := new(sync.WaitGroup)
 	for i := 0; i < c.Workers; i++ {
-		go obs.ParseSubmissions()
+		wg.Add(1)
+		go obs.ParseSubmissions(wg)
 	}
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt)
+	go func() {
+		for _ = range sigChan {
+			fmt.Println("\nInterrupt! Shutting down API server and waiting for remaining submissions to be processed")
+			err = obs.Shutdown()
+			if err != nil {
+				fmt.Printf("Problem shutting down API server: %s\n", err)
+				return
+			}
+		}
+	}()
+
 	err = obs.Serve("", "")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	wg.Wait()
 }

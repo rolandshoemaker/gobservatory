@@ -194,6 +194,17 @@ CREATE TABLE `email_addresses` (
   CONSTRAINT `fingerprint_email_addresses` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
+-- Serial numbers
+--   Contains serial numbers taken from a certificate linked by the `certificate_fingerprint`
+--   key.
+
+CREATE TABLE `serial_numbers` (
+  `certificate_fingerprint` binary(32) NOT NULL,
+  `serial` blob NOT NULL,
+  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
+  CONSTRAINT `fingerprint_serial_numbers` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
+
 -- Common names
 --   Contains common names taken from a certificate linked by the `certificate_fingerprint`
 --   key.

@@ -141,6 +141,11 @@ func (db *Database) AddEmailAddresses(fingerprint []byte, emails []string) error
 	return nil
 }
 
+// AddSerialNumber adds the serial number from a certificate
+func (db *Database) AddSerialNumber(serial *SerialNumber) error {
+	return db.m.Insert(serial)
+}
+
 // AddCommonName adds the common name from a certificate
 func (db *Database) AddCommonName(common *CommonName) error {
 	return db.m.Insert(common)
