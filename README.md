@@ -57,8 +57,8 @@ is as far as I've tested so far.
   - [ ] Parsers
     - [ ] [NSS root list](https://hg.mozilla.org/mozilla-central/raw-file/tip/security/nss/lib/ckfw/builtins/certdata.txt)
       retriever/parser/loader (agl has a good [ref. tool](https://github.com/agl/extract-nss-root-certs))
-    - [ ] MS root list retriever/parser/loader (no idea where to get this, surely
-      there is someone who has done this)
+    - [ ] MS root list retriever/parser/loader (catt has a useful set of scripts [here](https://github.com/kirei/catt/tree/master/scripts)
+      to crib from))
   - [ ] Dynamic reloading of root pools (RPC?)
 - [ ] [If available use OCSP to check if certificate is revoked](https://github.com/rolandshoemaker/gobservatory/blob/master/external/ocspChecker/ocsp.go)
   (periodically, Jeremy may already be working on this!)
