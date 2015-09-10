@@ -160,7 +160,7 @@ type Province struct {
 type SubjectExtension struct {
 	CertificateFingerprint []byte `db:"certificate_fingerprint"`
 	Identifier             string `db:"identifier"`
-	Value                  []byte `db:"value"`
+	Value                  string `db:"value"`
 }
 
 // CertificateExtension describes a certificate extension taken from a submitted certificate

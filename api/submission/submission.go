@@ -235,6 +235,10 @@ func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certi
 			return err
 		}
 
+		// XXX: All of the db.Add... operations below could be run concurrently to
+		//      improve performance somewhat (MySQL might not like this too much,
+		//      but my gut says InnoDB should be able to handle it).
+
 		// Raw certificate because why not
 		err = a.db.AddRawCertificate(&db.RawCertificate{
 			CertificateFingerprint: fingerprint,
@@ -246,21 +250,27 @@ func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certi
 		}
 
 		// Key IDs
-		err = a.db.AddAuthorityKeyID(&db.AuthorityKeyID{
-			CertificateFingerprint: fingerprint,
-			KeyIdentifier:          cert.AuthorityKeyId,
-		})
-		if err != nil {
-			// Continue
-			fmt.Println(err)
+		// XXX: I forget which one of these can be nil sometimes, so for now just
+		//      check both...
+		if cert.AuthorityKeyId != nil {
+			err = a.db.AddAuthorityKeyID(&db.AuthorityKeyID{
+				CertificateFingerprint: fingerprint,
+				KeyIdentifier:          cert.AuthorityKeyId,
+			})
+			if err != nil {
+				// Continue
+				fmt.Println(err)
+			}
 		}
-		err = a.db.AddSubjectKeyID(&db.SubjectKeyID{
-			CertificateFingerprint: fingerprint,
-			KeyIdentifier:          cert.SubjectKeyId,
-		})
-		if err != nil {
-			// Continue
-			fmt.Println(err)
+		if cert.SubjectKeyId != nil {
+			err = a.db.AddSubjectKeyID(&db.SubjectKeyID{
+				CertificateFingerprint: fingerprint,
+				KeyIdentifier:          cert.SubjectKeyId,
+			})
+			if err != nil {
+				// Continue
+				fmt.Println(err)
+			}
 		}
 
 		// Public key
@@ -365,8 +375,16 @@ func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certi
 			// Continue
 			fmt.Println(err)
 		}
-		// AddSubjectExtensions
-		// AddCertificateExtensions
+		err = a.db.AddSubjectExtensions(fingerprint, cert.Subject.Names)
+		if err != nil {
+			// Continue
+			fmt.Println(err)
+		}
+		err = a.db.AddCertificateExtensions(fingerprint, cert.Extensions)
+		if err != nil {
+			// Continue
+			fmt.Println(err)
+		}
 
 	} else if err != nil {
 		return err

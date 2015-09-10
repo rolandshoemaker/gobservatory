@@ -267,7 +267,7 @@ CREATE TABLE `provinces` (
 CREATE TABLE `subject_extensions` (
   `certificate_fingerprint` binary(32) NOT NULL,
   `identifier` varchar(256) NOT NULL,
-  `value` blob NOT NULL,
+  `value` varchar(256) NOT NULL,
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_subject_extensions` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;

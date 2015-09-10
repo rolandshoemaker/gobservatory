@@ -1,10 +1,13 @@
 package db
 
 import (
+	"crypto/x509/pkix"
 	"encoding/asn1"
 	"net"
 	"strings"
 	"time"
+
+	"github.com/rolandshoemaker/gobservatory/core"
 )
 
 // AddASN inserts or updates a ASN in the database
@@ -213,9 +216,41 @@ func (db *Database) AddProvinces(fingerprint []byte, provinces []string) error {
 	return nil
 }
 
-// AddSubjectExtensions
+// AddSubjectExtensions adds subject extentions (really just subject fields that
+// Golang doesnt' natively parse) from a certificate.
+func (db *Database) AddSubjectExtensions(fingerprint []byte, extensions []pkix.AttributeTypeAndValue) error {
+	for _, extension := range extensions {
+		if _, present := core.ParsedSubjectOIDs[extension.Type.String()]; !present {
+			if s, ok := extension.Value.(string); ok {
+				err := db.m.Insert(&SubjectExtension{
+					CertificateFingerprint: fingerprint,
+					Identifier:             extension.Type.String(),
+					Value:                  s,
+				})
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
 
-// AddCertificateExtensions
+// AddCertificateExtensions adds x509v3 extensions from a certificate
+func (db *Database) AddCertificateExtensions(fingerprint []byte, extensions []pkix.Extension) error {
+	for _, extension := range extensions {
+		err := db.m.Insert(&CertificateExtension{
+			CertificateFingerprint: fingerprint,
+			Identifier:             extension.Id.String(),
+			Critical:               extension.Critical,
+			Value:                  extension.Value,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 // AddIssuingCertificateURL adds issuing certificate URLs from a certificate
 func (db *Database) AddIssuingCertificateURL(fingerprint []byte, urls []string) error {

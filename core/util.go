@@ -25,6 +25,18 @@ var RevocationReasons = map[int]string{
 	10: "aAcompromise",
 }
 
+var ParsedSubjectOIDs = map[string]bool{
+	"2.5.4.6":  true, // Country
+	"2.5.4.10": true, // Organization
+	"2.5.4.11": true, // Organizational unit
+	"2.5.4.3":  true, // Common name
+	"2.5.4.5":  true, // Serial number
+	"2.5.4.7":  true, // Locality
+	"2.5.4.8":  true, // Province
+	"2.5.4.9":  true, // Street address
+	"2.5.4.17": true, // Postal code
+}
+
 // ServerConfig provides a simple reusable config most servers need
 type ServerConfig struct {
 	Host string `yaml:"host"`
