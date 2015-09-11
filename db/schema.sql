@@ -369,4 +369,4 @@ CREATE TABLE `reports` (
   KEY `chain_fingerprint_idx` (`chain_fingerprint`),
   CONSTRAINT `certificate_fingerprint_reports` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION,
   CONSTRAINT `chain_fingerprint_reports` FOREIGN KEY (`chain_fingerprint`) REFERENCES `chains` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
-)
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8;

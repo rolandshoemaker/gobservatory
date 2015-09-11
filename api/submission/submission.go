@@ -221,7 +221,7 @@ func (a *API) generateChainMeta(certs []*x509.Certificate) (db.CertificateChainM
 			Fingerprint:   fingerprint[:],
 			Validity:      trans,
 			TransValidity: trans,
-		}, true
+		}, trans
 	}
 
 	var chainBytes []byte

@@ -42,6 +42,8 @@ is as far as I've tested so far.
 
 ### Random
 
+- [ ] Impl. some kind of proof-of-work (e.g. [hashcash]()) to prevent baddies
+  DOSing us with massive/unparseable certs/chains
 - [ ] Might want a better way of storing `big.Int`s (since using bytes kinda messes
   up the ability to do most mathmatical operations...)
 - [ ] Switch from SHA 256 to old weird fingerprinting method in order to back-compatible
