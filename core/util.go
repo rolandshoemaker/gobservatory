@@ -1,8 +1,8 @@
 package core
 
 import (
-	"crypto"
-	"crypto/sha256"
+	"crypto/md5"
+	"crypto/sha1"
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
@@ -84,20 +84,11 @@ func StringToFingerprint(fpStr string) ([]byte, error) {
 
 }
 
-// Fingerprint creates a SHA256 certificate fingerprint
-func Fingerprint(cert *x509.Certificate) []byte {
-	hash := sha256.Sum256(cert.Raw)
-	return hash[:]
-}
-
-// FingerprintKey creates a SHA256 key fingerprint
-func FingerprintKey(key crypto.PublicKey) ([]byte, error) {
-	der, err := x509.MarshalPKIXPublicKey(key)
-	if err != nil {
-		return nil, err
-	}
-	hash := sha256.Sum256(der)
-	return hash[:], nil
+// Fingerprint creates MD5 and SHA1 hashes of the content and returns them concatenated
+func Fingerprint(content []byte) []byte {
+	md5Hash := md5.Sum(content)
+	sha1Hash := sha1.Sum(content)
+	return append(md5Hash[:], sha1Hash[:]...)
 }
 
 // BigIntToString converts a *big.Int to a hex string

@@ -93,7 +93,7 @@ func (a *API) submissionHandler(w http.ResponseWriter, r *http.Request) {
 	// Check if cert has been revoked
 	var revocationInfo []revocationDescription
 	for _, c := range sr.Certs {
-		if revoked, reason, err := a.db.IsRevoked(core.Fingerprint(c)); revoked {
+		if revoked, reason, err := a.db.IsRevoked(core.Fingerprint(c.Raw)); revoked {
 			// Send message to client but don't skip submission
 			revocationInfo = append(revocationInfo, revocationDescription{
 				Serial: core.BigIntToString(c.SerialNumber),
@@ -154,7 +154,7 @@ func (a *API) ParseSubmissions(wg *sync.WaitGroup) error {
 	return nil
 }
 
-func (a *API) generateChainMeta(certs []*x509.Certificate) (db.CertificateChainMeta, bool) {
+func (a *API) generateChainMeta(certs []*x509.Certificate) (*db.CertificateChainMeta, bool) {
 	// XXX: Debugging statements
 	fmt.Println("GENERATING CHAINS!")
 	intermediatePool := x509.NewCertPool()
@@ -193,57 +193,54 @@ func (a *API) generateChainMeta(certs []*x509.Certificate) (db.CertificateChainM
 	if msValid {
 		a.stats.Inc("submission.parsing.chains.ms-valid", 1, 1.0)
 	}
-	if !nssValid && !msValid {
-		trans := false
-		// Check for trans-validity
-		transChains, err := certs[0].Verify(x509.VerifyOptions{
-			Intermediates: intermediatePool,
-			Roots:         a.transPool,
-		})
-		if err != nil {
-			fmt.Println(err)
-		}
-		if len(transChains) > 0 {
-			trans = true
-			a.stats.Inc("submission.parsing.chains.trans-valid", 1, 1.0)
-		} else {
-			a.stats.Inc("submission.parsing.chains.invalid", 1, 1.0)
-		}
 
-		// Generate fingerprint and return
-		var chainBytes []byte
-		for _, cert := range certs {
-			chainBytes = append(chainBytes, cert.Raw...)
-		}
-		fingerprint := sha256.Sum256(chainBytes)
-		return db.CertificateChainMeta{
-			Certs:         len(certs),
-			Fingerprint:   fingerprint[:],
-			Validity:      trans,
-			TransValidity: trans,
-		}, trans
-	}
-
+	// Generate fingerprint and return
 	var chainBytes []byte
 	for _, cert := range certs {
 		chainBytes = append(chainBytes, cert.Raw...)
 	}
 	fingerprint := sha256.Sum256(chainBytes)
-	chain := db.CertificateChainMeta{
-		Certs:       len(certs),
-		Fingerprint: fingerprint[:],
-		Validity:    nssValid || msValid,
-		NssValidity: nssValid,
-		MsValidity:  msValid,
+
+	if nssValid || msValid {
+		chain := &db.CertificateChainMeta{
+			Certs:       len(certs),
+			Fingerprint: fingerprint[:],
+			Validity:    true,
+			NssValidity: nssValid,
+			MsValidity:  msValid,
+		}
+		a.stats.Inc("submission.parsing.chains.valid", 1, 1.0)
+		return chain, true
 	}
-	a.stats.Inc("submission.parsing.chains.valid", 1, 1.0)
-	return chain, true
+
+	// Check for trans-validity
+	trans := false
+	transChains, err := certs[0].Verify(x509.VerifyOptions{
+		Intermediates: intermediatePool,
+		Roots:         a.transPool,
+	})
+	if err != nil {
+		fmt.Println(err)
+	}
+	if len(transChains) > 0 {
+		trans = true
+		a.stats.Inc("submission.parsing.chains.trans-valid", 1, 1.0)
+	} else {
+		a.stats.Inc("submission.parsing.chains.invalid", 1, 1.0)
+	}
+
+	return &db.CertificateChainMeta{
+		Certs:         len(certs),
+		Fingerprint:   fingerprint[:],
+		Validity:      trans,
+		TransValidity: trans,
+	}, trans
 }
 
-func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certificate, valid, leaf bool, asnNum int, now time.Time, serverIP net.IP) error {
+func (a *API) addCertificate(chainMeta *db.CertificateChainMeta, cert *x509.Certificate, valid, leaf bool, asnNum int, now time.Time, serverIP net.IP) error {
 	// Check if certificate has already been added, if so no need to do work intensive
 	// decomposition
-	fingerprint := core.Fingerprint(cert)
+	fingerprint := core.Fingerprint(cert.Raw)
 
 	if exists, err := a.db.CertificateExists(fingerprint); err == nil && exists {
 		a.stats.Inc("submission.parsing.certificates.previously-seen", 1.0, 1)
@@ -252,20 +249,33 @@ func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certi
 		return err
 	}
 
+	keyDER, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
+	if err != nil {
+		return err
+	}
+	keyFingerprint := core.Fingerprint(keyDER)
+
 	// Decompsoe certificate into all the different bits we want
-	err := a.db.AddCertificate(&db.Certificate{
-		Fingerprint:      fingerprint,
-		Valid:            valid,
-		CertVersion:      uint8(cert.Version),
-		Root:             cert.IsCA,
-		BasicConstraints: cert.BasicConstraintsValid,
-		MaxPathLen:       cert.MaxPathLen,
-		MaxPathLenZero:   cert.MaxPathLenZero,
-		SignatureAlg:     uint8(cert.SignatureAlgorithm),
-		Signature:        cert.Signature,
-		NotBefore:        cert.NotBefore,
-		NotAfter:         cert.NotAfter,
-		Revoked:          false, // XXX: Without doing OCSP/CRL checks this'll have to do for now
+	err = a.db.AddCertificate(&db.Certificate{
+		Fingerprint:            fingerprint,
+		KeyFingerprint:         keyFingerprint,
+		Valid:                  valid,
+		CertVersion:            uint8(cert.Version),
+		Root:                   cert.IsCA,
+		BasicConstraints:       cert.BasicConstraintsValid,
+		MaxPathLen:             cert.MaxPathLen,
+		MaxPathLenZero:         cert.MaxPathLenZero,
+		SignatureAlg:           uint8(cert.SignatureAlgorithm),
+		Signature:              cert.Signature,
+		NotBefore:              cert.NotBefore,
+		NotAfter:               cert.NotAfter,
+		Revoked:                false, // XXX: Without doing OCSP/CRL checks this'll have to do for now
+		SubjectKeyIdentifier:   cert.SubjectKeyId,
+		AuthorityKeyIdentifier: cert.AuthorityKeyId,
+		KeyUsage:               uint8(cert.KeyUsage),
+		CommonName:             cert.Subject.CommonName,
+		Serial:                 fmt.Sprintf("%X", cert.SerialNumber),
+		IssuerCommonName:       cert.Issuer.CommonName,
 	})
 	if err != nil {
 		return err
@@ -303,36 +313,16 @@ func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certi
 		fmt.Println(err)
 	}
 
-	// Key IDs
-	// XXX: I forget which one of these can be nil sometimes, so for now just
-	//      check both...
-	if cert.AuthorityKeyId != nil {
-		err = a.db.AddAuthorityKeyID(&db.AuthorityKeyID{
-			CertificateFingerprint: fingerprint,
-			KeyIdentifier:          cert.AuthorityKeyId,
-		})
-		if err != nil {
-			// Continue
-			fmt.Println(err)
-		}
-	}
-	if cert.SubjectKeyId != nil {
-		err = a.db.AddSubjectKeyID(&db.SubjectKeyID{
-			CertificateFingerprint: fingerprint,
-			KeyIdentifier:          cert.SubjectKeyId,
-		})
-		if err != nil {
-			// Continue
-			fmt.Println(err)
-		}
-	}
-
 	// Public key
-	keyFingerprint, err := core.FingerprintKey(cert.PublicKey)
-	if err != nil {
-		// Continue
-		fmt.Println(err)
-	} else {
+	if exists, err := a.db.KeyExists(keyFingerprint); err == nil && !exists {
+		err = a.db.AddRawKey(&db.RawKey{
+			KeyFingerprint: keyFingerprint,
+			DER:            keyDER,
+		})
+		if err != nil {
+			// um... return? this is confusing now...
+			return err
+		}
 		switch t := cert.PublicKey.(type) {
 		case *rsa.PublicKey:
 			a.stats.Inc("submission.parsing.certificates.key-types.RSA", 1, 1.0)
@@ -358,11 +348,14 @@ func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certi
 				X:                      t.X.Bytes(),
 				Y:                      t.Y.Bytes(),
 			})
+			if err != nil {
+				// Continue
+				fmt.Println(err)
+			}
 		}
-		if err != nil {
-			// Continue
-			fmt.Println(err)
-		}
+	} else if err != nil {
+		// Continue??
+		fmt.Println(err)
 	}
 
 	// Names sections
@@ -400,49 +393,39 @@ func (a *API) addCertificate(chainMeta db.CertificateChainMeta, cert *x509.Certi
 	}
 
 	// Subject sections
-	if cert.SerialNumber != nil {
-		err = a.db.AddSerialNumber(&db.SerialNumber{
-			CertificateFingerprint: fingerprint,
-			Serial:                 cert.SerialNumber.Bytes(),
-		})
-		if err != nil {
-			// Continue
-			fmt.Println(err)
-		}
-	}
-	err = a.db.AddCommonName(&db.CommonName{
-		CertificateFingerprint: fingerprint,
-		Name: cert.Subject.CommonName,
-	})
-	if err != nil {
-		// Continue
-		fmt.Println(err)
-	}
 	err = a.db.AddCountries(fingerprint, cert.Subject.Country)
 	if err != nil {
 		// Continue
 		fmt.Println(err)
 	}
 	err = a.db.AddOrganizations(fingerprint, cert.Subject.Organization)
-	err = a.db.AddOrganizationalUnits(fingerprint, cert.Subject.OrganizationalUnit)
-	err = a.db.AddLocalities(fingerprint, cert.Subject.Locality)
-	err = a.db.AddProvinces(fingerprint, cert.Subject.Province)
-
-	// Various identifiers and extensions
-	err = a.db.AddPolicyIdentifiers(fingerprint, cert.PolicyIdentifiers)
 	if err != nil {
 		// Continue
 		fmt.Println(err)
 	}
-	err = a.db.AddKeyUsage(&db.KeyUsage{
-		CertificateFingerprint: fingerprint,
-		KeyUsage:               uint8(cert.KeyUsage),
-	})
+	err = a.db.AddOrganizationalUnits(fingerprint, cert.Subject.OrganizationalUnit)
+	if err != nil {
+		// Continue
+		fmt.Println(err)
+	}
+	err = a.db.AddLocalities(fingerprint, cert.Subject.Locality)
+	if err != nil {
+		// Continue
+		fmt.Println(err)
+	}
+	err = a.db.AddProvinces(fingerprint, cert.Subject.Province)
 	if err != nil {
 		// Continue
 		fmt.Println(err)
 	}
 	err = a.db.AddSubjectExtensions(fingerprint, cert.Subject.Names)
+	if err != nil {
+		// Continue
+		fmt.Println(err)
+	}
+
+	// Various identifiers and extensions
+	err = a.db.AddPolicyIdentifiers(fingerprint, cert.PolicyIdentifiers)
 	if err != nil {
 		// Continue
 		fmt.Println(err)
@@ -477,11 +460,15 @@ func (a *API) addCertificates(certs []*x509.Certificate, asnNum int, serverIP ne
 
 	chainMeta, valid := a.generateChainMeta(certs)
 
+	err := a.addChainMeta(chainMeta)
+	if err != nil {
+		return err
+	}
+
 	if exists, err := a.db.ChainExists(chainMeta.Fingerprint); err == nil && exists {
 		a.stats.Inc("submission.parsing.chains.previously-seen", 1, 1.0)
 		return nil
 	}
-	a.addChainMeta(chainMeta)
 
 	now := time.Now()
 	for i, cert := range certs {
@@ -517,14 +504,11 @@ func (a *API) addASN(asnFlag int, ip net.IP) (int, error) {
 	return number, nil
 }
 
-func (a *API) addChainMeta(chainMeta db.CertificateChainMeta) {
+func (a *API) addChainMeta(chainMeta *db.CertificateChainMeta) (err error) {
 	fmt.Printf("ADDING CHAIN METADATA!\n")
 	// XXX: Debugging statements
 	fmt.Printf("[CHAIN] Fingerprint: %x, Certs: %d, NSS: %v, MS: %v, Valid: %v, Trans-valid: %v\n", chainMeta.Fingerprint, chainMeta.Certs, chainMeta.NssValidity, chainMeta.MsValidity, chainMeta.Validity, chainMeta.TransValidity)
-	err := a.db.AddChainMeta(chainMeta)
-	if err != nil {
-		return
-	}
+	return a.db.AddChainMeta(chainMeta)
 }
 
 // Serve starts the submission API either using HTTP or HTTPS

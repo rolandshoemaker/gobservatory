@@ -28,12 +28,12 @@ func (db *Database) AddASN(number int, name string) error {
 }
 
 // AddChainMeta inserts or updates a chain in the database
-func (db *Database) AddChainMeta(chain CertificateChainMeta) error {
+func (db *Database) AddChainMeta(chain *CertificateChainMeta) error {
 	now := time.Now()
 	_, err := db.m.Exec(
-		`INSERT INTO chains (fingerprint, certs, first_seen, last_seen, nss_valid, ms_valid, trans_valid, valid, count)
+		`INSERT INTO chains (fingerprint, certs, first_seen, last_seen, nss_valid, ms_valid, trans_valid, valid, times_seen)
 		 VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON DUPLICATE KEY UPDATE last_seen=?, count=VALUES(count)+1`,
+		 ON DUPLICATE KEY UPDATE last_seen=?, times_seen=VALUES(times_seen)+1`,
 		chain.Fingerprint,
 		chain.Certs,
 		now,
@@ -54,28 +54,51 @@ func (db *Database) AddChainMeta(chain CertificateChainMeta) error {
 // AddCertificate adds a basic certificate outline that everything else links
 // back to
 func (db *Database) AddCertificate(cert *Certificate) error {
-	return db.m.Insert(cert)
+	now := time.Now()
+	_, err := db.m.Exec(
+		`INSERT INTO certificates (
+		   fingerprint, key_fingerprint, valid, version, root, basic_constraints, name_constraints_critical,
+		   max_path_len, max_path_zero, signature_alg, signature, not_before, not_after, revoked, key_usage,
+		   subject_key_identifier, authority_key_identifier, serial, common_name, issuer_common_name,
+		   times_seen, first_seen, last_seen
+		 )
+		 VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON DUPLICATE KEY UPDATE last_seen=?, times_seen=VALUES(times_seen)+1`,
+		cert.Fingerprint,
+		cert.KeyFingerprint,
+		cert.Valid,
+		cert.CertVersion,
+		cert.Root,
+		cert.BasicConstraints,
+		cert.NameConstraintsCritical,
+		cert.MaxPathLen,
+		cert.MaxPathLenZero,
+		cert.SignatureAlg,
+		cert.Signature,
+		cert.NotBefore,
+		cert.NotAfter,
+		cert.Revoked,
+		cert.KeyUsage,
+		cert.SubjectKeyIdentifier,
+		cert.AuthorityKeyIdentifier,
+		cert.Serial,
+		cert.CommonName,
+		cert.IssuerCommonName,
+		1,   // times seen, if this is the first time
+		now, // first seen, now
+		now, // last seen, ...now
+		now, // last seen, if a duplicate
+	)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // AddRawCertificate adds a basic certificate outline that everything else links
 // back to
 func (db *Database) AddRawCertificate(rawCert *RawCertificate) error {
 	return db.m.Insert(rawCert)
-}
-
-// AddAuthorityKeyID adds the authority key id from a certificate
-func (db *Database) AddAuthorityKeyID(keyID *AuthorityKeyID) error {
-	return db.m.Insert(keyID)
-}
-
-// AddSubjectKeyID adds the subject key id from a certificate
-func (db *Database) AddSubjectKeyID(keyID *SubjectKeyID) error {
-	return db.m.Insert(keyID)
-}
-
-// AddKeyUsage adds the key usage from a certificate
-func (db *Database) AddKeyUsage(usage *KeyUsage) error {
-	return db.m.Insert(usage)
 }
 
 // AddRSAKey adds the RSA public key from a certificate
@@ -91,6 +114,11 @@ func (db *Database) AddDSAKey(key *DSAKey) error {
 // AddECDSAKey adds the ECC public key from a certificate
 func (db *Database) AddECDSAKey(key *ECDSAKey) error {
 	return db.m.Insert(key)
+}
+
+// AddRawKey adds a basic key outline that everything else links back to
+func (db *Database) AddRawKey(rawKey *RawKey) error {
+	return db.m.Insert(rawKey)
 }
 
 // AddDNSNames adds a set of DNS names from a certificate
@@ -139,16 +167,6 @@ func (db *Database) AddEmailAddresses(fingerprint []byte, emails []string) error
 		}
 	}
 	return nil
-}
-
-// AddSerialNumber adds the serial number from a certificate
-func (db *Database) AddSerialNumber(serial *SerialNumber) error {
-	return db.m.Insert(serial)
-}
-
-// AddCommonName adds the common name from a certificate
-func (db *Database) AddCommonName(common *CommonName) error {
-	return db.m.Insert(common)
 }
 
 // AddCountries adds subject countries from a certificate

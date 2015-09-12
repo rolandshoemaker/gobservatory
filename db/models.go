@@ -32,6 +32,7 @@ type RevokedCertificate struct {
 // Certificate describes a submitted certificate
 type Certificate struct {
 	Fingerprint             []byte    `db:"fingerprint"`
+	KeyFingerprint          []byte    `db:"key_fingerprint"`
 	Valid                   bool      `db:"valid"`
 	CertVersion             uint8     `db:"version"`
 	Root                    bool      `db:"root"`
@@ -44,6 +45,12 @@ type Certificate struct {
 	NotBefore               time.Time `db:"not_before"`
 	NotAfter                time.Time `db:"not_after"`
 	Revoked                 bool      `db:"revoked"`
+	SubjectKeyIdentifier    []byte    `db:"subject_key_identifier"`
+	AuthorityKeyIdentifier  []byte    `db:"authority_key_identifier"`
+	KeyUsage                uint8     `db:"key_usage"`
+	CommonName              string    `db:"common_name"`
+	Serial                  string    `db:"serial"`
+	IssuerCommonName        string    `db:"issuer_common_name"`
 
 	LockCol int
 }
@@ -52,24 +59,6 @@ type Certificate struct {
 type RawCertificate struct {
 	CertificateFingerprint []byte `db:"certificate_fingerprint"`
 	DER                    []byte `db:"der"`
-}
-
-// AuthorityKeyID describes the authority key identifier of a submitted certificate
-type AuthorityKeyID struct {
-	CertificateFingerprint []byte `db:"certificate_fingerprint"`
-	KeyIdentifier          []byte `db:"key_identifier"`
-}
-
-// SubjectKeyID describes the subject key identifier of a submitted certificate
-type SubjectKeyID struct {
-	CertificateFingerprint []byte `db:"certificate_fingerprint"`
-	KeyIdentifier          []byte `db:"key_identifier"`
-}
-
-// KeyUsage describes the key usage of a submitted certificate
-type KeyUsage struct {
-	CertificateFingerprint []byte `db:"certificate_fingerprint"`
-	KeyUsage               uint8  `db:"usage"`
 }
 
 // RSAKey describes a RSA public key from a submitted certificate
@@ -100,6 +89,12 @@ type ECDSAKey struct {
 	Y                      []byte `db:"y"`
 }
 
+// RawKey describes the raw form of a submitted certificate
+type RawKey struct {
+	KeyFingerprint []byte `db:"key_fingerprint"`
+	DER            []byte `db:"der"`
+}
+
 // DNSName describes a DNS name taken from a submitted certificate
 type DNSName struct {
 	CertificateFingerprint []byte `db:"certificate_fingerprint"`
@@ -118,18 +113,6 @@ type IPAddress struct {
 type EmailAddress struct {
 	CertificateFingerprint []byte `db:"certificate_fingerprint"`
 	Email                  string `db:"email"`
-}
-
-// SerialNumber describes a serial number of a submitted certificate
-type SerialNumber struct {
-	CertificateFingerprint []byte `db:"certificate_fingerprint"`
-	Serial                 []byte `db:"serial"`
-}
-
-// CommonName describes the common name of a submitted certificate
-type CommonName struct {
-	CertificateFingerprint []byte `db:"certificate_fingerprint"`
-	Name                   string `db:"name"`
 }
 
 // Country describes a subject country tkane from a submitted certificate

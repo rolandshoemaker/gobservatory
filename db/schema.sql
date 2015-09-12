@@ -1,6 +1,7 @@
 --
--- Draft 1 -- September 2015
---   A draft schema for the Go re-write of the SSL Observatory
+-- draft-2 -- September 2015
+--   A draft schema for the Go re-write of the SSL Observatory, paired down quite
+--   a bit from draft-1.
 --
 
 -- ASNs
@@ -21,7 +22,7 @@ CREATE TABLE `asns` (
 --   or submitted.
 
 CREATE TABLE `chains` (
-  `fingerprint` binary(32) NOT NULL,
+  `fingerprint` binary(36) NOT NULL,
   `certs` int NOT NULL,
   `first_seen` datetime NOT NULL,
   `last_seen` datetime NOT NULL,
@@ -29,7 +30,7 @@ CREATE TABLE `chains` (
   `ms_valid` tinyint(1) NOT NULL,
   `trans_valid` tinyint(1) NOT NULL,
   `valid` tinyint(1) NOT NULL,
-  `count` bigint(20) NOT NULL,
+  `times_seen` bigint(20) NOT NULL,
   PRIMARY KEY (`fingerprint`)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
@@ -39,7 +40,7 @@ CREATE TABLE `chains` (
 --   here since A CRL may contain references to certificates we don't know about.
 
 CREATE TABLE `revoked_certificates` (
-  `fingerprint` binary(32) NOT NULL,
+  `fingerprint` binary(36) NOT NULL,
   `revoked_at` datetime DEFAULT NULL,
   `revocation_reason` tinyint(1) DEFAULT NULL,
   `by_ocsp` tinyint(1) NOT NULL,
@@ -53,7 +54,8 @@ CREATE TABLE `revoked_certificates` (
 --   information.
 
 CREATE TABLE `certificates` (
-  `fingerprint` binary(32) NOT NULL,
+  `fingerprint` binary(36) NOT NULL,
+  `key_fingerprint` binary(36) NOT NULL,
   `valid` tinyint(1) NOT NULL,
   `version` tinyint(1) NOT NULL,
   `root` tinyint(1) NOT NULL,
@@ -66,7 +68,15 @@ CREATE TABLE `certificates` (
   `not_before` datetime NOT NULL,
   `not_after` datetime NOT NULL,
   `revoked` tinyint(1) NOT NULL,
-  `LockCol` int NOT NULL,
+  `key_usage` int NOT NULL,
+  `subject_key_identifier` blob DEFAULT NULL,
+  `authority_key_identifier` blob DEFAULT NULL,
+  `serial` varchar(256) NOT NULL,
+  `common_name` varchar(256) NOT NULL,
+  `issuer_common_name` varchar(256) NOT NULL,
+  `times_seen` bigint(20) NOT NULL,
+  `first_seen` datetime NOT NULL,
+  `last_seen` datetime NOT NULL,
   PRIMARY KEY (`fingerprint`)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
@@ -75,43 +85,10 @@ CREATE TABLE `certificates` (
 --   linked to the other certificate tables by the 'certificate_fingerprint' key.
 
 CREATE TABLE `raw_certificates` (
-  `certificate_fingerprint` binary(32) NOT NULL,
+  `certificate_fingerprint` binary(36) NOT NULL,
   `der` blob NOT NULL,
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_raw_certificates` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
-) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
-
--- Authority key identifier
---   Contains auth key ID taken from a certificate linked by the `certificate_fingerprint`
---   key.
-
-CREATE TABLE `authority_key_ids` (
-  `certificate_fingerprint` binary(32) NOT NULL,
-  `key_identifier` blob NOT NULL,
-  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
-  CONSTRAINT `fingerprint_authority_key_id` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
-) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
-
--- Subject key identifier
---   Contains subject key ID taken from a certificate linked by the `certificate_fingerprint`
---   key.
-
-CREATE TABLE `subject_key_ids` (
-  `certificate_fingerprint` binary(32) NOT NULL,
-  `key_identifier` blob NOT NULL,
-  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
-  CONSTRAINT `fingerprint_subject_key_id` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
-) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
-
--- Key usages
---   Contains key usages taken from a certificate linked by the `certificate_fingerprint`
---   key.
-
-CREATE TABLE `key_usages` (
-  `certificate_fingerprint` binary(32) NOT NULL,
-  `usage` int NOT NULL,
-  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
-  CONSTRAINT `fingerprint_key_usages` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
 -- RSA public keys
@@ -119,8 +96,8 @@ CREATE TABLE `key_usages` (
 --   key.
 
 CREATE TABLE `rsa_keys` (
-  `certificate_fingerprint` binary(32) NOT NULL,
-  `key_fingerprint` binary(32) NOT NULL,
+  `certificate_fingerprint` binary(36) NOT NULL,
+  `key_fingerprint` binary(36) NOT NULL,
   `modulus_size` bigint(20) NOT NULL,
   `modulus` blob NOT NULL,
   `exponent` bigint(20) NOT NULL,
@@ -134,8 +111,8 @@ CREATE TABLE `rsa_keys` (
 --   key.
 
 CREATE TABLE `dsa_keys` (
-  `certificate_fingerprint` binary(32) NOT NULL,
-  `key_fingerprint` binary(32) NOT NULL,
+  `certificate_fingerprint` binary(36) NOT NULL,
+  `key_fingerprint` binary(36) NOT NULL,
   `p` blob NOT NULL,
   `q` blob NOT NULL,
   `g` blob NOT NULL,
@@ -150,8 +127,8 @@ CREATE TABLE `dsa_keys` (
 --   key. Only P-224, P-256, P-384, and P-521 curve based keys are stored.
 
 CREATE TABLE `ecdsa_keys` (
-  `certificate_fingerprint` binary(32) NOT NULL,
-  `key_fingerprint` binary(32) NOT NULL,
+  `certificate_fingerprint` binary(36) NOT NULL,
+  `key_fingerprint` binary(36) NOT NULL,
   `curve` varchar(256) NOT NULL,
   `x` blob NOT NULL,
   `y` blob NOT NULL,
@@ -160,12 +137,22 @@ CREATE TABLE `ecdsa_keys` (
   CONSTRAINT `fingerprint_ecc_keys` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
+-- Raw keys
+--   Raw DER content of keys we have decomposed into other tables, linked to the
+--   other key tables by the 'key_fingerprint' key.
+
+CREATE TABLE `raw_keys` (
+  `key_fingerprint` binary(36) NOT NULL,
+  `der` blob NOT NULL,
+  PRIMARY KEY (`key_fingerprint`)
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
+
 -- DNS names
 --   Contains DNS names taken from a certificate linked by the `certificate_fingerprint`
 --   key. Also contains a bool to indicate if the name is a wildcard.
 
 CREATE TABLE `dns_names` (
-  `certificate_fingerprint` binary(32) NOT NULL,
+  `certificate_fingerprint` binary(36) NOT NULL,
   `name` varchar(256) NOT NULL,
   `wildcard` tinyint(1) NOT NULL,
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
@@ -177,7 +164,7 @@ CREATE TABLE `dns_names` (
 --   key. Also contains the type of the IP (v4: 0, v6: 1).
 
 CREATE TABLE `ip_addresses` (
-  `certificate_fingerprint` binary(32) NOT NULL,
+  `certificate_fingerprint` binary(36) NOT NULL,
   `ip` varchar(256) NOT NULL,
   `address_type` tinyint(1) NOT NULL,
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
@@ -189,32 +176,10 @@ CREATE TABLE `ip_addresses` (
 --   key.
 
 CREATE TABLE `email_addresses` (
-  `certificate_fingerprint` binary(32) NOT NULL,
+  `certificate_fingerprint` binary(36) NOT NULL,
   `email` varchar(256) NOT NULL,
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_email_addresses` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
-) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
-
--- Serial numbers
---   Contains serial numbers taken from a certificate linked by the `certificate_fingerprint`
---   key.
-
-CREATE TABLE `serial_numbers` (
-  `certificate_fingerprint` binary(32) NOT NULL,
-  `serial` blob NOT NULL,
-  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
-  CONSTRAINT `fingerprint_serial_numbers` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
-) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
-
--- Common names
---   Contains common names taken from a certificate linked by the `certificate_fingerprint`
---   key.
-
-CREATE TABLE `common_names` (
-  `certificate_fingerprint` binary(32) NOT NULL,
-  `name` varchar(256) NOT NULL,
-  KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
-  CONSTRAINT `fingerprint_common_names` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
 -- Countries
@@ -222,7 +187,7 @@ CREATE TABLE `common_names` (
 --   key.
 
 CREATE TABLE `countries` (
-  `certificate_fingerprint` binary(32) NOT NULL,
+  `certificate_fingerprint` binary(36) NOT NULL,
   `country` varchar(256) NOT NULL,
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_countries` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
@@ -233,7 +198,7 @@ CREATE TABLE `countries` (
 --   key.
 
 CREATE TABLE `organizations` (
-  `certificate_fingerprint` binary(32) NOT NULL,
+  `certificate_fingerprint` binary(36) NOT NULL,
   `organization` varchar(256) NOT NULL,
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_organizations` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
@@ -244,7 +209,7 @@ CREATE TABLE `organizations` (
 --   key.
 
 CREATE TABLE `organizational_units` (
-  `certificate_fingerprint` binary(32) NOT NULL,
+  `certificate_fingerprint` binary(36) NOT NULL,
   `organizational_unit` varchar(256) NOT NULL,
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_organizational_units` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
@@ -255,7 +220,7 @@ CREATE TABLE `organizational_units` (
 --   key.
 
 CREATE TABLE `localities` (
-  `certificate_fingerprint` binary(32) NOT NULL,
+  `certificate_fingerprint` binary(36) NOT NULL,
   `locality` varchar(256) NOT NULL,
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_localities` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
@@ -266,7 +231,7 @@ CREATE TABLE `localities` (
 --   key.
 
 CREATE TABLE `provinces` (
-  `certificate_fingerprint` binary(32) NOT NULL,
+  `certificate_fingerprint` binary(36) NOT NULL,
   `province` varchar(256) NOT NULL,
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_provinces` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
@@ -277,7 +242,7 @@ CREATE TABLE `provinces` (
 --   linked by the `certificate_fingerprint` key.
 
 CREATE TABLE `subject_extensions` (
-  `certificate_fingerprint` binary(32) NOT NULL,
+  `certificate_fingerprint` binary(36) NOT NULL,
   `identifier` varchar(256) NOT NULL,
   `value` varchar(256) NOT NULL,
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
@@ -289,7 +254,7 @@ CREATE TABLE `subject_extensions` (
 --   key.
 
 CREATE TABLE `certificate_extensions` (
-  `certificate_fingerprint` binary(32) NOT NULL,
+  `certificate_fingerprint` binary(36) NOT NULL,
   `identifier` varchar(256) NOT NULL,
   `critical` tinyint(1) NOT NULL,
   `value` blob NOT NULL,
@@ -302,7 +267,7 @@ CREATE TABLE `certificate_extensions` (
 --   `certificate_fingerprint` key.
 
 CREATE TABLE `issuing_certificate_urls` (
-  `certificate_fingerprint` binary(32) NOT NULL,
+  `certificate_fingerprint` binary(36) NOT NULL,
   `url` varchar(256) NOT NULL,
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_issuing_certificate_urls` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
@@ -313,7 +278,7 @@ CREATE TABLE `issuing_certificate_urls` (
 --   key.
 
 CREATE TABLE `ocsp_endpoints` (
-  `certificate_fingerprint` binary(32) NOT NULL,
+  `certificate_fingerprint` binary(36) NOT NULL,
   `endpoint` varchar(256) NOT NULL,
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_ocsp_endpoint` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
@@ -324,7 +289,7 @@ CREATE TABLE `ocsp_endpoints` (
 --   key.
 
 CREATE TABLE `crl_endpoints` (
-  `certificate_fingerprint` binary(32) NOT NULL,
+  `certificate_fingerprint` binary(36) NOT NULL,
   `endpoint` varchar(256) NOT NULL,
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_crl_endpoint` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
@@ -336,7 +301,7 @@ CREATE TABLE `crl_endpoints` (
 --   is a wildcard.
 
 CREATE TABLE `constrained_names` (
-  `certificate_fingerprint` binary(32) NOT NULL,
+  `certificate_fingerprint` binary(36) NOT NULL,
   `name` varchar(256) NOT NULL,
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_constrained_names` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
@@ -347,7 +312,7 @@ CREATE TABLE `constrained_names` (
 --   `certificate_fingerprint` key.
 
 CREATE TABLE `policy_identifiers` (
-  `certificate_fingerprint` binary(32) NOT NULL,
+  `certificate_fingerprint` binary(36) NOT NULL,
   `identifier` varchar(256) NOT NULL,
   KEY `cert_fingerprint_idx` (`certificate_fingerprint`),
   CONSTRAINT `fingerprint_policy_identifiers` FOREIGN KEY (`certificate_fingerprint`) REFERENCES `certificates` (`fingerprint`) ON DELETE CASCADE ON UPDATE NO ACTION
@@ -358,8 +323,8 @@ CREATE TABLE `policy_identifiers` (
 
 CREATE TABLE `reports` (
   `source` tinyint(1) NOT NULL,
-  `certificate_fingerprint` binary(32) NOT NULL,
-  `chain_fingerprint` binary(32) NOT NULL,
+  `certificate_fingerprint` binary(36) NOT NULL,
+  `chain_fingerprint` binary(36) NOT NULL,
   `leaf` tinyint(1) NOT NULL,
   `server_ip` varchar(256) DEFAULT NULL,
   `domain` varchar(256) NOT NULL,

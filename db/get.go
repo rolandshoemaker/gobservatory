@@ -57,3 +57,19 @@ func (db *Database) CertificateExists(fingerprint []byte) (bool, error) {
 	}
 	return count > 0, err
 }
+
+// KeyExists checks if a public key has already been added to the database
+func (db *Database) KeyExists(fingerprint []byte) (bool, error) {
+	var count int
+	err := db.m.SelectOne(
+		&count,
+		"SELECT count(key_fingerprint) FROM raw_keys WHERE key_fingerprint = :fingerprint",
+		map[string]interface{}{
+			"fingerprint": fingerprint,
+		},
+	)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, err
+}

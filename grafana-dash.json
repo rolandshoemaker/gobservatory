@@ -35,13 +35,16 @@
           },
           "id": 1,
           "legend": {
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
+            "alignAsTable": true,
+            "avg": true,
+            "current": true,
+            "hideEmpty": false,
+            "max": true,
+            "min": true,
+            "rightSide": true,
             "show": true,
-            "total": false,
-            "values": false
+            "total": true,
+            "values": true
           },
           "lines": true,
           "linewidth": 2,
@@ -61,21 +64,21 @@
               "yaxis": 2
             }
           ],
-          "span": 6,
+          "span": 12,
           "stack": false,
           "steppedLine": false,
           "targets": [
             {
-              "target": "alias(stats.counters.gobservatory.submission.http.rate.rate, 'Submission rate')"
+              "target": "alias(stats.counters.gobservatory.submission.http.rate.rate, 'Submissions')"
             },
             {
               "target": "alias(stats.counters.gobservatory.submission.http.certificates.rate.rate, 'Certificates submitted')"
             },
             {
-              "target": "alias(stats.counters.gobservatory.submission.http.error-rate.rate, 'Submission error rate')"
+              "target": "alias(stats.counters.gobservatory.submission.revoked-certificates-seen.rate, 'Revoked certificates submitted')"
             },
             {
-              "target": "alias(stats.counters.gobservatory.submission.revoked-certificates-seen.rate, 'Revoked certificates submitted')"
+              "target": "alias(stats.counters.gobservatory.submission.http.error-rate.rate, 'Malformed submissions')"
             }
           ],
           "timeFrom": null,
@@ -114,13 +117,15 @@
           },
           "id": 3,
           "legend": {
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
+            "alignAsTable": true,
+            "avg": true,
+            "current": true,
+            "max": true,
+            "min": true,
+            "rightSide": false,
             "show": true,
             "total": false,
-            "values": false
+            "values": true
           },
           "lines": true,
           "linewidth": 2,
@@ -131,12 +136,15 @@
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
-          "span": 6,
+          "span": 12,
           "stack": false,
           "steppedLine": false,
           "targets": [
             {
               "target": "alias(stats.timers.gobservatory.submission.http.latency.mean, 'Mean submission latency')"
+            },
+            {
+              "target": "alias(stats.timers.gobservatory.submission.http.latency.upper_90, 'Upper 90th')"
             }
           ],
           "timeFrom": null,
@@ -181,15 +189,87 @@
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 2,
+          "id": 8,
           "legend": {
-            "avg": false,
+            "alignAsTable": true,
+            "avg": true,
             "current": false,
-            "max": false,
-            "min": false,
+            "max": true,
+            "min": true,
             "show": true,
             "total": false,
-            "values": false
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 2,
+          "links": [],
+          "nullPointMode": "connected",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "span": 12,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "target": "alias(stats.counters.gobservatory.submission.parsing.certificates.roots.rate.rate, 'Roots')"
+            }
+          ],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "Root submission rate",
+          "tooltip": {
+            "shared": true,
+            "value_type": "cumulative"
+          },
+          "type": "graph",
+          "x-axis": true,
+          "y-axis": true,
+          "y_formats": [
+            "short",
+            "short"
+          ]
+        }
+      ],
+      "title": "New row"
+    },
+    {
+      "collapse": false,
+      "editable": true,
+      "height": "250px",
+      "panels": [
+        {
+          "aliasColors": {},
+          "bars": false,
+          "datasource": null,
+          "editable": true,
+          "error": false,
+          "fill": 1,
+          "grid": {
+            "leftLogBase": 1,
+            "leftMax": null,
+            "leftMin": 0,
+            "rightLogBase": 1,
+            "rightMax": null,
+            "rightMin": 0,
+            "threshold1": null,
+            "threshold1Color": "rgba(216, 200, 27, 0.27)",
+            "threshold2": null,
+            "threshold2Color": "rgba(234, 112, 112, 0.22)"
+          },
+          "id": 2,
+          "legend": {
+            "alignAsTable": true,
+            "avg": true,
+            "current": true,
+            "max": true,
+            "min": true,
+            "rightSide": true,
+            "show": true,
+            "total": false,
+            "values": true
           },
           "lines": true,
           "linewidth": 2,
@@ -203,9 +283,13 @@
             {
               "alias": "Previously seen chains",
               "yaxis": 2
+            },
+            {
+              "alias": "Previously seen certificates",
+              "yaxis": 2
             }
           ],
-          "span": 6,
+          "span": 12,
           "stack": false,
           "steppedLine": false,
           "targets": [
@@ -216,7 +300,10 @@
               "target": "alias(stats.counters.gobservatory.submission.parsing.chains.rate.rate, 'Chains parsed')"
             },
             {
-              "target": "alias(stats.counters.gobservatory.submission.parsing.chains.previously-seen-rate.rate, 'Previously seen chains')"
+              "target": "alias(stats.counters.gobservatory.submission.parsing.chains.previously-seen.rate, 'Previously seen chains')"
+            },
+            {
+              "target": "alias(stats.counters.gobservatory.submission.parsing.certificates.previously-seen.rate, 'Previously seen certificates')"
             }
           ],
           "timeFrom": null,
@@ -255,13 +342,14 @@
           },
           "id": 4,
           "legend": {
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
+            "alignAsTable": true,
+            "avg": true,
+            "current": true,
+            "max": true,
+            "min": true,
             "show": true,
             "total": false,
-            "values": false
+            "values": true
           },
           "lines": true,
           "linewidth": 2,
@@ -272,12 +360,15 @@
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
-          "span": 6,
+          "span": 12,
           "stack": false,
           "steppedLine": false,
           "targets": [
             {
               "target": "alias(stats.timers.gobservatory.submission.parsing.latency.mean, 'Mean parsing latency')"
+            },
+            {
+              "target": "alias(stats.timers.gobservatory.submission.parsing.latency.upper_90, 'Upper 90th')"
             }
           ],
           "timeFrom": null,
@@ -324,13 +415,14 @@
           },
           "id": 5,
           "legend": {
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
+            "alignAsTable": true,
+            "avg": true,
+            "current": true,
+            "max": true,
+            "min": true,
             "show": true,
             "total": false,
-            "values": false
+            "values": true
           },
           "lines": true,
           "linewidth": 2,
@@ -343,21 +435,26 @@
           "seriesOverrides": [
             {
               "alias": "Invalid chains",
+              "yaxis": 1
+            },
+            {
+              "alias": "MS valid chains",
+              "yaxis": 2
+            },
+            {
+              "alias": "NSS valid chains",
               "yaxis": 2
             }
           ],
-          "span": 12,
+          "span": 6,
           "stack": false,
           "steppedLine": false,
           "targets": [
             {
-              "target": "alias(stats.counters.gobservatory.submission.parsing.chains.invalid.rate, 'Invalid chains')"
-            },
-            {
               "target": "alias(stats.counters.gobservatory.submission.parsing.chains.valid.rate, 'Valid chains')"
             },
             {
-              "target": "alias(stats.counters.gobservatory.submission.parsing.chains.nss-valid.rate, 'NSS valid chains')"
+              "target": "alias(stats.counters.gobservatory.submission.parsing.chains.invalid.rate, 'Invalid chains')"
             }
           ],
           "timeFrom": null,
@@ -385,24 +482,25 @@
           "grid": {
             "leftLogBase": 1,
             "leftMax": null,
-            "leftMin": 0,
+            "leftMin": null,
             "rightLogBase": 1,
             "rightMax": null,
-            "rightMin": 0,
+            "rightMin": null,
             "threshold1": null,
             "threshold1Color": "rgba(216, 200, 27, 0.27)",
             "threshold2": null,
             "threshold2Color": "rgba(234, 112, 112, 0.22)"
           },
-          "id": 6,
+          "id": 9,
           "legend": {
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
+            "alignAsTable": true,
+            "avg": true,
+            "current": true,
+            "max": true,
+            "min": true,
             "show": true,
             "total": false,
-            "values": false
+            "values": true
           },
           "lines": true,
           "linewidth": 2,
@@ -414,6 +512,79 @@
           "renderer": "flot",
           "seriesOverrides": [],
           "span": 6,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "target": "alias(stats.counters.gobservatory.submission.parsing.chains.nss-valid.rate, 'NSS valid chains')"
+            },
+            {
+              "target": "alias(stats.counters.gobservatory.submission.parsing.chains.ms-valid.rate, 'MS valid chains')"
+            }
+          ],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "Validity by root pool",
+          "tooltip": {
+            "shared": true,
+            "value_type": "cumulative"
+          },
+          "type": "graph",
+          "x-axis": true,
+          "y-axis": true,
+          "y_formats": [
+            "short",
+            "short"
+          ]
+        }
+      ],
+      "title": "New row"
+    },
+    {
+      "collapse": false,
+      "editable": true,
+      "height": "250px",
+      "panels": [
+        {
+          "aliasColors": {},
+          "bars": false,
+          "datasource": null,
+          "editable": true,
+          "error": false,
+          "fill": 1,
+          "grid": {
+            "leftLogBase": 1,
+            "leftMax": null,
+            "leftMin": 0,
+            "rightLogBase": 1,
+            "rightMax": null,
+            "rightMin": 0,
+            "threshold1": null,
+            "threshold1Color": "rgba(216, 200, 27, 0.27)",
+            "threshold2": null,
+            "threshold2Color": "rgba(234, 112, 112, 0.22)"
+          },
+          "id": 6,
+          "legend": {
+            "alignAsTable": true,
+            "avg": true,
+            "current": true,
+            "max": true,
+            "min": true,
+            "show": true,
+            "total": false,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 2,
+          "links": [],
+          "nullPointMode": "connected",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "span": 12,
           "stack": false,
           "steppedLine": false,
           "targets": [
@@ -457,82 +628,16 @@
           },
           "id": 7,
           "legend": {
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
+            "alignAsTable": true,
+            "avg": true,
+            "current": true,
+            "hideEmpty": true,
+            "max": true,
+            "min": true,
+            "rightSide": true,
             "show": true,
             "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 2,
-          "links": [],
-          "nullPointMode": "connected",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [],
-          "span": 6,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "target": "aliasByNode(stats.counters.gobservatory.submission.parsing.certificates.signature-algorithm.*.rate, 7)"
-            }
-          ],
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "Signature types",
-          "tooltip": {
-            "shared": true,
-            "value_type": "cumulative"
-          },
-          "type": "graph",
-          "x-axis": true,
-          "y-axis": true,
-          "y_formats": [
-            "short",
-            "short"
-          ]
-        }
-      ],
-      "title": "New row"
-    },
-    {
-      "collapse": false,
-      "editable": true,
-      "height": "250px",
-      "panels": [
-        {
-          "aliasColors": {},
-          "bars": false,
-          "datasource": null,
-          "editable": true,
-          "error": false,
-          "fill": 1,
-          "grid": {
-            "leftLogBase": 1,
-            "leftMax": null,
-            "leftMin": 0,
-            "rightLogBase": 1,
-            "rightMax": null,
-            "rightMin": 0,
-            "threshold1": null,
-            "threshold1Color": "rgba(216, 200, 27, 0.27)",
-            "threshold2": null,
-            "threshold2Color": "rgba(234, 112, 112, 0.22)"
-          },
-          "id": 8,
-          "legend": {
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
-            "show": true,
-            "total": false,
-            "values": false
+            "values": true
           },
           "lines": true,
           "linewidth": 2,
@@ -548,12 +653,12 @@
           "steppedLine": false,
           "targets": [
             {
-              "target": "alias(stats.counters.gobservatory.submission.parsing.certificates.roots.rate.rate, 'Roots')"
+              "target": "aliasByNode(stats.counters.gobservatory.submission.parsing.certificates.signature-algorithm.*.rate, 7)"
             }
           ],
           "timeFrom": null,
           "timeShift": null,
-          "title": "Root submission rate",
+          "title": "Signature types",
           "tooltip": {
             "shared": true,
             "value_type": "cumulative"
@@ -604,7 +709,7 @@
     }
   ],
   "time": {
-    "from": "now-1h",
+    "from": "now-24h",
     "to": "now"
   },
   "templating": {
@@ -615,5 +720,5 @@
   },
   "refresh": false,
   "schemaVersion": 6,
-  "version": 1
+  "version": 9
 }
