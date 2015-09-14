@@ -67,7 +67,12 @@ func main() {
 		whoisTimeout,
 		whoisKeepAlive,
 	)
-	database, err := db.New()
+	stats, err := statsd.NewClient(net.JoinHostPort(c.StatsD.Host, c.StatsD.Port), "gobservatory")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	database, err := db.New(stats)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -84,11 +89,6 @@ func main() {
 		return
 	}
 	transPool, err := core.PoolFromPEM(c.TransPool)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	stats, err := statsd.NewClient(net.JoinHostPort(c.StatsD.Host, c.StatsD.Port), "gobservatory")
 	if err != nil {
 		fmt.Println(err)
 		return

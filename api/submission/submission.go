@@ -437,7 +437,7 @@ func (a *API) addCertificate(chainMeta *db.CertificateChainMeta, cert *x509.Cert
 	}
 
 	// Add report
-	return a.db.AddReport(&db.Report{
+	err = a.db.AddReport(&db.Report{
 		Source:                 0,  // XXX: fix this...
 		Domain:                 "", // XXX: fix this...
 		ServerIP:               serverIP.String(),
@@ -447,6 +447,10 @@ func (a *API) addCertificate(chainMeta *db.CertificateChainMeta, cert *x509.Cert
 		ASNNumber:              asnNum,
 		Submitted:              now,
 	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (a *API) addCertificates(certs []*x509.Certificate, asnNum int, serverIP net.IP) error {

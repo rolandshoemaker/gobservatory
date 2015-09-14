@@ -4,6 +4,7 @@ import (
 	"database/sql"
 
 	// MySQL driver import
+	"github.com/cactus/go-statsd-client/statsd"
 	_ "github.com/rolandshoemaker/gobservatory/Godeps/_workspace/src/github.com/go-sql-driver/mysql"
 	"github.com/rolandshoemaker/gobservatory/Godeps/_workspace/src/gopkg.in/gorp.v1"
 )
@@ -11,10 +12,11 @@ import (
 // Database provides an interface to the MySQL database
 type Database struct {
 	m *gorp.DbMap
+	s statsd.Statter
 }
 
 // New provides an initialized Database
-func New() (*Database, error) {
+func New(stats statsd.Statter) (*Database, error) {
 	db, err := sql.Open("mysql", "boulder@tcp(localhost:3306)/obs_draft_schema?parseTime=true&strict=true")
 	if err != nil {
 		return nil, err
@@ -50,5 +52,6 @@ func New() (*Database, error) {
 
 	return &Database{
 		m: dbmap,
+		s: stats,
 	}, nil
 }

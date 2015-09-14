@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"time"
 
 	"github.com/rolandshoemaker/gobservatory/core"
 )
@@ -9,6 +10,9 @@ import (
 // IsRevoked checks the revoked_certificates table to quickly check if a certificate
 // has been revoked
 func (db *Database) IsRevoked(fingerprint []byte) (bool, string, error) {
+	selectStarted := time.Now()
+	defer db.s.TimingDuration("submission.parsing.db.select-latency.revoked-certificates", time.Since(selectStarted), 1.0)
+
 	var reovcationReason int
 	err := db.m.SelectOne(
 		&reovcationReason,
@@ -28,6 +32,9 @@ func (db *Database) IsRevoked(fingerprint []byte) (bool, string, error) {
 
 // ChainExists checks if a chain has already been added to the database
 func (db *Database) ChainExists(fingerprint []byte) (bool, error) {
+	selectStarted := time.Now()
+	defer db.s.TimingDuration("submission.parsing.db.select-latency.chains", time.Since(selectStarted), 1.0)
+
 	var count int
 	err := db.m.SelectOne(
 		&count,
@@ -44,6 +51,9 @@ func (db *Database) ChainExists(fingerprint []byte) (bool, error) {
 
 // CertificateExists checks if a certificate has already been added to the database
 func (db *Database) CertificateExists(fingerprint []byte) (bool, error) {
+	selectStarted := time.Now()
+	defer db.s.TimingDuration("submission.parsing.db.select-latency.certificates", time.Since(selectStarted), 1.0)
+
 	var count int
 	err := db.m.SelectOne(
 		&count,
@@ -60,6 +70,9 @@ func (db *Database) CertificateExists(fingerprint []byte) (bool, error) {
 
 // KeyExists checks if a public key has already been added to the database
 func (db *Database) KeyExists(fingerprint []byte) (bool, error) {
+	selectStarted := time.Now()
+	defer db.s.TimingDuration("submission.parsing.db.select-latency.public-keys", time.Since(selectStarted), 1.0)
+
 	var count int
 	err := db.m.SelectOne(
 		&count,

@@ -163,77 +163,8 @@
           ]
         }
       ],
-      "title": "New row"
-    },
-    {
-      "collapse": false,
-      "editable": true,
-      "height": "250px",
-      "panels": [
-        {
-          "aliasColors": {},
-          "bars": false,
-          "datasource": null,
-          "editable": true,
-          "error": false,
-          "fill": 1,
-          "grid": {
-            "leftLogBase": 1,
-            "leftMax": null,
-            "leftMin": 0,
-            "rightLogBase": 1,
-            "rightMax": null,
-            "rightMin": 0,
-            "threshold1": null,
-            "threshold1Color": "rgba(216, 200, 27, 0.27)",
-            "threshold2": null,
-            "threshold2Color": "rgba(234, 112, 112, 0.22)"
-          },
-          "id": 8,
-          "legend": {
-            "alignAsTable": true,
-            "avg": true,
-            "current": false,
-            "max": true,
-            "min": true,
-            "show": true,
-            "total": false,
-            "values": true
-          },
-          "lines": true,
-          "linewidth": 2,
-          "links": [],
-          "nullPointMode": "connected",
-          "percentage": false,
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [],
-          "span": 12,
-          "stack": false,
-          "steppedLine": false,
-          "targets": [
-            {
-              "target": "alias(stats.counters.gobservatory.submission.parsing.certificates.roots.rate.rate, 'Roots')"
-            }
-          ],
-          "timeFrom": null,
-          "timeShift": null,
-          "title": "Root submission rate",
-          "tooltip": {
-            "shared": true,
-            "value_type": "cumulative"
-          },
-          "type": "graph",
-          "x-axis": true,
-          "y-axis": true,
-          "y_formats": [
-            "short",
-            "short"
-          ]
-        }
-      ],
-      "title": "New row"
+      "title": "HTTP STATS",
+      "showTitle": true
     },
     {
       "collapse": false,
@@ -268,6 +199,7 @@
             "min": true,
             "rightSide": true,
             "show": true,
+            "sortDesc": true,
             "total": false,
             "values": true
           },
@@ -282,11 +214,15 @@
           "seriesOverrides": [
             {
               "alias": "Previously seen chains",
-              "yaxis": 2
+              "yaxis": 1
             },
             {
               "alias": "Previously seen certificates",
-              "yaxis": 2
+              "yaxis": 1
+            },
+            {
+              "alias": "Expired certificates",
+              "yaxis": 1
             }
           ],
           "span": 12,
@@ -304,6 +240,9 @@
             },
             {
               "target": "alias(stats.counters.gobservatory.submission.parsing.certificates.previously-seen.rate, 'Previously seen certificates')"
+            },
+            {
+              "target": "alias(stats.counters.gobservatory.submission.parsing.certificates.expired.rate, 'Expired certificates')"
             }
           ],
           "timeFrom": null,
@@ -320,7 +259,16 @@
             "short",
             "short"
           ]
-        },
+        }
+      ],
+      "title": "PARSING STATS",
+      "showTitle": true
+    },
+    {
+      "collapse": false,
+      "editable": true,
+      "height": "250px",
+      "panels": [
         {
           "aliasColors": {},
           "bars": false,
@@ -383,6 +331,68 @@
           "y-axis": true,
           "y_formats": [
             "ms",
+            "short"
+          ]
+        },
+        {
+          "aliasColors": {},
+          "bars": false,
+          "datasource": null,
+          "editable": true,
+          "error": false,
+          "fill": 1,
+          "grid": {
+            "leftLogBase": 1,
+            "leftMax": null,
+            "leftMin": 0,
+            "rightLogBase": 1,
+            "rightMax": null,
+            "rightMin": 0,
+            "threshold1": null,
+            "threshold1Color": "rgba(216, 200, 27, 0.27)",
+            "threshold2": null,
+            "threshold2Color": "rgba(234, 112, 112, 0.22)"
+          },
+          "id": 8,
+          "legend": {
+            "alignAsTable": true,
+            "avg": true,
+            "current": false,
+            "max": true,
+            "min": true,
+            "show": true,
+            "total": false,
+            "values": true
+          },
+          "lines": true,
+          "linewidth": 2,
+          "links": [],
+          "nullPointMode": "connected",
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "span": 12,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "target": "alias(stats.counters.gobservatory.submission.parsing.certificates.roots.rate.rate, 'Roots')"
+            }
+          ],
+          "timeFrom": null,
+          "timeShift": null,
+          "title": "Root submission rate",
+          "tooltip": {
+            "shared": true,
+            "value_type": "cumulative"
+          },
+          "type": "graph",
+          "x-axis": true,
+          "y-axis": true,
+          "y_formats": [
+            "short",
             "short"
           ]
         }
@@ -538,7 +548,8 @@
           ]
         }
       ],
-      "title": "New row"
+      "title": "VALIDITY STATS",
+      "showTitle": true
     },
     {
       "collapse": false,
@@ -672,7 +683,275 @@
           ]
         }
       ],
-      "title": "New row"
+      "title": "KEY TYPE / SIGNATURE ALG stats",
+      "showTitle": true
+    },
+    {
+      "title": "DATABASE STATS",
+      "height": "250px",
+      "editable": true,
+      "collapse": false,
+      "panels": [
+        {
+          "title": "Sum'd averages",
+          "error": false,
+          "span": 12,
+          "editable": true,
+          "type": "graph",
+          "id": 13,
+          "datasource": null,
+          "renderer": "flot",
+          "x-axis": true,
+          "y-axis": true,
+          "y_formats": [
+            "ms",
+            "short"
+          ],
+          "grid": {
+            "leftLogBase": 1,
+            "leftMax": null,
+            "rightMax": null,
+            "leftMin": 0,
+            "rightMin": null,
+            "rightLogBase": 1,
+            "threshold1": null,
+            "threshold2": null,
+            "threshold1Color": "rgba(216, 200, 27, 0.27)",
+            "threshold2Color": "rgba(234, 112, 112, 0.22)"
+          },
+          "lines": true,
+          "fill": 1,
+          "linewidth": 2,
+          "points": false,
+          "pointradius": 5,
+          "bars": false,
+          "stack": false,
+          "percentage": false,
+          "legend": {
+            "show": true,
+            "values": true,
+            "min": true,
+            "max": true,
+            "current": true,
+            "total": false,
+            "avg": true,
+            "alignAsTable": true,
+            "rightSide": true
+          },
+          "nullPointMode": "connected",
+          "steppedLine": false,
+          "tooltip": {
+            "value_type": "cumulative",
+            "shared": true
+          },
+          "timeFrom": null,
+          "timeShift": null,
+          "targets": [
+            {
+              "target": "alias(sumSeries(stats.timers.gobservatory.submission.parsing.db.insert-latency.*.mean), 'INSERT sum avg')"
+            },
+            {
+              "target": "alias(sumSeries(stats.timers.gobservatory.submission.parsing.db.insert-update-latency.*.mean), 'INSERT/UPDATE sum avg')"
+            },
+            {
+              "target": "alias(sumSeries(stats.timers.gobservatory.submission.parsing.db.select-latency.*.mean), 'SELECT sum avg')"
+            }
+          ],
+          "aliasColors": {},
+          "seriesOverrides": [],
+          "links": []
+        },
+        {
+          "title": "INSERT / UPDATE latency",
+          "error": false,
+          "span": 12,
+          "editable": true,
+          "type": "graph",
+          "id": 11,
+          "datasource": null,
+          "renderer": "flot",
+          "x-axis": true,
+          "y-axis": true,
+          "y_formats": [
+            "ms",
+            "short"
+          ],
+          "grid": {
+            "leftLogBase": 1,
+            "leftMax": null,
+            "rightMax": null,
+            "leftMin": 0,
+            "rightMin": null,
+            "rightLogBase": 1,
+            "threshold1": null,
+            "threshold2": null,
+            "threshold1Color": "rgba(216, 200, 27, 0.27)",
+            "threshold2Color": "rgba(234, 112, 112, 0.22)"
+          },
+          "lines": true,
+          "fill": 1,
+          "linewidth": 2,
+          "points": false,
+          "pointradius": 5,
+          "bars": false,
+          "stack": false,
+          "percentage": false,
+          "legend": {
+            "show": true,
+            "values": true,
+            "min": true,
+            "max": true,
+            "current": true,
+            "total": false,
+            "avg": true,
+            "rightSide": true,
+            "alignAsTable": true
+          },
+          "nullPointMode": "connected",
+          "steppedLine": false,
+          "tooltip": {
+            "value_type": "cumulative",
+            "shared": true
+          },
+          "timeFrom": null,
+          "timeShift": null,
+          "targets": [
+            {
+              "target": "aliasByNode(stats.timers.gobservatory.submission.parsing.db.insert-update-latency.*.mean, 7)"
+            }
+          ],
+          "aliasColors": {},
+          "seriesOverrides": [],
+          "links": []
+        },
+        {
+          "title": "INSERT latency",
+          "error": false,
+          "span": 12,
+          "editable": true,
+          "type": "graph",
+          "id": 10,
+          "datasource": null,
+          "renderer": "flot",
+          "x-axis": true,
+          "y-axis": true,
+          "y_formats": [
+            "ms",
+            "short"
+          ],
+          "grid": {
+            "leftLogBase": 1,
+            "leftMax": null,
+            "rightMax": null,
+            "leftMin": 0,
+            "rightMin": null,
+            "rightLogBase": 1,
+            "threshold1": null,
+            "threshold2": null,
+            "threshold1Color": "rgba(216, 200, 27, 0.27)",
+            "threshold2Color": "rgba(234, 112, 112, 0.22)"
+          },
+          "lines": true,
+          "fill": 1,
+          "linewidth": 2,
+          "points": false,
+          "pointradius": 5,
+          "bars": false,
+          "stack": false,
+          "percentage": false,
+          "legend": {
+            "show": true,
+            "values": true,
+            "min": true,
+            "max": true,
+            "current": true,
+            "total": false,
+            "avg": true,
+            "alignAsTable": true,
+            "rightSide": true
+          },
+          "nullPointMode": "connected",
+          "steppedLine": false,
+          "tooltip": {
+            "value_type": "cumulative",
+            "shared": true
+          },
+          "timeFrom": null,
+          "timeShift": null,
+          "targets": [
+            {
+              "target": "aliasByNode(stats.timers.gobservatory.submission.parsing.db.insert-latency.*.mean, 7)"
+            }
+          ],
+          "aliasColors": {},
+          "seriesOverrides": [],
+          "links": []
+        },
+        {
+          "title": "SELECT latency",
+          "error": false,
+          "span": 12,
+          "editable": true,
+          "type": "graph",
+          "id": 12,
+          "datasource": null,
+          "renderer": "flot",
+          "x-axis": true,
+          "y-axis": true,
+          "y_formats": [
+            "ms",
+            "short"
+          ],
+          "grid": {
+            "leftLogBase": 1,
+            "leftMax": null,
+            "rightMax": null,
+            "leftMin": 0,
+            "rightMin": null,
+            "rightLogBase": 1,
+            "threshold1": null,
+            "threshold2": null,
+            "threshold1Color": "rgba(216, 200, 27, 0.27)",
+            "threshold2Color": "rgba(234, 112, 112, 0.22)"
+          },
+          "lines": true,
+          "fill": 1,
+          "linewidth": 2,
+          "points": false,
+          "pointradius": 5,
+          "bars": false,
+          "stack": false,
+          "percentage": false,
+          "legend": {
+            "show": true,
+            "values": true,
+            "min": true,
+            "max": true,
+            "current": true,
+            "total": false,
+            "avg": true,
+            "rightSide": true,
+            "alignAsTable": true
+          },
+          "nullPointMode": "connected",
+          "steppedLine": false,
+          "tooltip": {
+            "value_type": "cumulative",
+            "shared": true
+          },
+          "timeFrom": null,
+          "timeShift": null,
+          "targets": [
+            {
+              "target": "aliasByNode(stats.timers.gobservatory.submission.parsing.db.select-latency.*.mean, 7)"
+            }
+          ],
+          "aliasColors": {},
+          "seriesOverrides": [],
+          "links": []
+        }
+      ],
+      "showTitle": true
     }
   ],
   "nav": [
@@ -709,7 +988,7 @@
     }
   ],
   "time": {
-    "from": "now-24h",
+    "from": "now-6h",
     "to": "now"
   },
   "templating": {
@@ -720,5 +999,5 @@
   },
   "refresh": false,
   "schemaVersion": 6,
-  "version": 9
+  "version": 13
 }

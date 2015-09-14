@@ -13,6 +13,7 @@ import (
 // AddASN inserts or updates a ASN in the database
 func (db *Database) AddASN(number int, name string) error {
 	now := time.Now()
+	defer db.s.TimingDuration("submission.parsing.db.insert-update-latency.asns", time.Since(now), 1.0)
 	_, err := db.m.Exec(
 		`INSERT INTO asns (number, name, last_seen) VALUES(?, ?, ?)
 		 ON DUPLICATE KEY UPDATE last_seen=?`,
@@ -31,6 +32,7 @@ func (db *Database) AddASN(number int, name string) error {
 // AddChainMeta inserts or updates a chain in the database
 func (db *Database) AddChainMeta(chain *CertificateChainMeta) error {
 	now := time.Now()
+	defer db.s.TimingDuration("submission.parsing.db.insert-update-latency.chains", time.Since(now), 1.0)
 	_, err := db.m.Exec(
 		`INSERT INTO chains (
 			fingerprint, certs, nss_valid, ms_valid, trans_valid, valid, times_seen, first_seen, last_seen
@@ -56,6 +58,7 @@ func (db *Database) AddChainMeta(chain *CertificateChainMeta) error {
 // back to
 func (db *Database) AddCertificate(cert *Certificate) error {
 	now := time.Now()
+	defer db.s.TimingDuration("submission.parsing.db.insert-update-latency.certificates", time.Since(now), 1.0)
 	_, err := db.m.Exec(
 		`INSERT INTO certificates (
 		   size, fingerprint, key_fingerprint, key_alg, valid, version, root, expired, basic_constraints, name_constraints_critical,
@@ -106,6 +109,9 @@ func (db *Database) AddCertificate(cert *Certificate) error {
 // AddRawCertificate adds a basic certificate outline that everything else links
 // back to
 func (db *Database) AddRawCertificate(rawCert *RawCertificate) error {
+	insertStarted := time.Now()
+	defer db.s.TimingDuration("submission.parsing.db.insert-latency.raw-certificates", time.Since(insertStarted), 1.0)
+
 	return db.m.Insert(rawCert)
 }
 
@@ -113,6 +119,7 @@ func (db *Database) AddRawCertificate(rawCert *RawCertificate) error {
 // last seen and times seen columns
 func (db *Database) AddPublicKey(key *Key) error {
 	now := time.Now()
+	defer db.s.TimingDuration("submission.parsing.db.insert-update-latency.public-keys", time.Since(now), 1.0)
 	_, err := db.m.Exec(
 		`INSERT INTO public_keys (
 			fingerprint, type, valid, rsa_modulus_size, rsa_modulus, rsa_exponent,
@@ -159,11 +166,17 @@ func (db *Database) AddPublicKey(key *Key) error {
 
 // AddRawKey adds a basic key outline that everything else links back to
 func (db *Database) AddRawKey(rawKey *RawKey) error {
+	insertStarted := time.Now()
+	defer db.s.TimingDuration("submission.parsing.db.insert-latency.raw-public-keys", time.Since(insertStarted), 1.0)
+
 	return db.m.Insert(rawKey)
 }
 
 // AddDNSNames adds a set of DNS names from a certificate
 func (db *Database) AddDNSNames(fingerprint []byte, names []string) error {
+	insertStarted := time.Now()
+	defer db.s.TimingDuration("submission.parsing.db.insert-latency.dns-names", time.Since(insertStarted), 1.0)
+
 	for _, name := range names {
 		err := db.m.Insert(&DNSName{
 			CertificateFingerprint: fingerprint,
@@ -179,6 +192,9 @@ func (db *Database) AddDNSNames(fingerprint []byte, names []string) error {
 
 // AddIPAddresses adds a set of IP addresses from a certificate
 func (db *Database) AddIPAddresses(fingerprint []byte, ips []net.IP) error {
+	insertStarted := time.Now()
+	defer db.s.TimingDuration("submission.parsing.db.insert-latency.ip-addresses", time.Since(insertStarted), 1.0)
+
 	for _, ip := range ips {
 		addrType := uint8(0)
 		if len(ip) == net.IPv6len {
@@ -198,6 +214,9 @@ func (db *Database) AddIPAddresses(fingerprint []byte, ips []net.IP) error {
 
 // AddEmailAddresses adds a set of email addresses from a certificate
 func (db *Database) AddEmailAddresses(fingerprint []byte, emails []string) error {
+	insertStarted := time.Now()
+	defer db.s.TimingDuration("submission.parsing.db.insert-latency.email-addresses", time.Since(insertStarted), 1.0)
+
 	for _, email := range emails {
 		err := db.m.Insert(&EmailAddress{
 			CertificateFingerprint: fingerprint,
@@ -213,6 +232,9 @@ func (db *Database) AddEmailAddresses(fingerprint []byte, emails []string) error
 // AddSubjectExtensions adds subject extentions (really just subject fields that
 // Golang doesnt' natively parse) from a certificate.
 func (db *Database) AddSubjectExtensions(fingerprint []byte, extensions []pkix.AttributeTypeAndValue) error {
+	insertStarted := time.Now()
+	defer db.s.TimingDuration("submission.parsing.db.insert-latency.subject-extensions", time.Since(insertStarted), 1.0)
+
 	for _, extension := range extensions {
 		if _, present := core.ParsedSubjectOIDs[extension.Type.String()]; !present {
 			if s, ok := extension.Value.(string); ok {
@@ -232,6 +254,9 @@ func (db *Database) AddSubjectExtensions(fingerprint []byte, extensions []pkix.A
 
 // AddCertificateExtensions adds x509v3 extensions from a certificate
 func (db *Database) AddCertificateExtensions(fingerprint []byte, extensions []pkix.Extension) error {
+	insertStarted := time.Now()
+	defer db.s.TimingDuration("submission.parsing.db.insert-latency.certificate-extensions", time.Since(insertStarted), 1.0)
+
 	for _, extension := range extensions {
 		err := db.m.Insert(&CertificateExtension{
 			CertificateFingerprint: fingerprint,
@@ -248,6 +273,9 @@ func (db *Database) AddCertificateExtensions(fingerprint []byte, extensions []pk
 
 // AddIssuingCertificateURL adds issuing certificate URLs from a certificate
 func (db *Database) AddIssuingCertificateURL(fingerprint []byte, urls []string) error {
+	insertStarted := time.Now()
+	defer db.s.TimingDuration("submission.parsing.db.insert-latency.issuing-certificate-urls", time.Since(insertStarted), 1.0)
+
 	for _, url := range urls {
 		err := db.m.Insert(&IssuingCertificateURL{
 			CertificateFingerprint: fingerprint,
@@ -262,6 +290,9 @@ func (db *Database) AddIssuingCertificateURL(fingerprint []byte, urls []string) 
 
 // AddOCSPEndpoints adds OCSP endpoints taken from a certificate
 func (db *Database) AddOCSPEndpoints(fingerprint []byte, endpoints []string) error {
+	insertStarted := time.Now()
+	defer db.s.TimingDuration("submission.parsing.db.insert-latency.ocsp-endpoints", time.Since(insertStarted), 1.0)
+
 	for _, endpoint := range endpoints {
 		err := db.m.Insert(&OCSPEndpoint{
 			CertificateFingerprint: fingerprint,
@@ -276,6 +307,9 @@ func (db *Database) AddOCSPEndpoints(fingerprint []byte, endpoints []string) err
 
 // AddCRLEndpoints adds CRL distribution endpoints taken from a certificate
 func (db *Database) AddCRLEndpoints(fingerprint []byte, endpoints []string) error {
+	insertStarted := time.Now()
+	defer db.s.TimingDuration("submission.parsing.db.insert-latency.crl-endpoints", time.Since(insertStarted), 1.0)
+
 	for _, endpoint := range endpoints {
 		err := db.m.Insert(&CRLEndpoint{
 			CertificateFingerprint: fingerprint,
@@ -290,6 +324,9 @@ func (db *Database) AddCRLEndpoints(fingerprint []byte, endpoints []string) erro
 
 // AddConstrainedDNSNames adds constrained DNS names taken from a certificate
 func (db *Database) AddConstrainedDNSNames(fingerprint []byte, names []string) error {
+	insertStarted := time.Now()
+	defer db.s.TimingDuration("submission.parsing.db.insert-latency.constrained-dns-names", time.Since(insertStarted), 1.0)
+
 	for _, name := range names {
 		err := db.m.Insert(&ConstrainedName{
 			CertificateFingerprint: fingerprint,
@@ -304,6 +341,9 @@ func (db *Database) AddConstrainedDNSNames(fingerprint []byte, names []string) e
 
 // AddPolicyIdentifiers adds policy identifiers taken from a certificate
 func (db *Database) AddPolicyIdentifiers(fingerprint []byte, identifiers []asn1.ObjectIdentifier) error {
+	insertStarted := time.Now()
+	defer db.s.TimingDuration("submission.parsing.db.insert-latency.policy-identifiers", time.Since(insertStarted), 1.0)
+
 	for _, identifier := range identifiers {
 		err := db.m.Insert(&PolicyIdentifier{
 			CertificateFingerprint: fingerprint,
@@ -318,5 +358,8 @@ func (db *Database) AddPolicyIdentifiers(fingerprint []byte, identifiers []asn1.
 
 // AddReport adds a submission report to the database
 func (db *Database) AddReport(report *Report) error {
+	insertStarted := time.Now()
+	defer db.s.TimingDuration("submission.parsing.db.insert-latency.reports", time.Since(insertStarted), 1.0)
+
 	return db.m.Insert(report)
 }
