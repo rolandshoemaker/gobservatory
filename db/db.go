@@ -28,7 +28,7 @@ func New() (*Database, error) {
 	dbmap.AddTableWithName(RevokedCertificate{}, "revoked_certificates")
 	dbmap.AddTableWithName(Certificate{}, "certificates")
 	dbmap.AddTableWithName(RawCertificate{}, "raw_certificates")
-	dbmap.AddTableWithName(Key{}, "keys")
+	dbmap.AddTableWithName(Key{}, "public_keys")
 	// dbmap.AddTableWithName(RSAKey{}, "rsa_keys")
 	// dbmap.AddTableWithName(DSAKey{}, "dsa_keys")
 	// dbmap.AddTableWithName(ECDSAKey{}, "ecdsa_keys")

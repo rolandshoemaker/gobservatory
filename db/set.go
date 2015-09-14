@@ -19,6 +19,7 @@ func (db *Database) AddASN(number int, name string) error {
 		number,
 		name,
 		now,
+		// Duplicate section of insert
 		now,
 	)
 	if err != nil {
@@ -32,15 +33,12 @@ func (db *Database) AddChainMeta(chain *CertificateChainMeta) error {
 	now := time.Now()
 	_, err := db.m.Exec(
 		`INSERT INTO chains (
-			fingerprint, certs, first_seen, last_seen, nss_valid, ms_valid, trans_valid, valid, times_seen
-			first_seen, last_seen
+			fingerprint, certs, nss_valid, ms_valid, trans_valid, valid, times_seen, first_seen, last_seen
 		)
-		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON DUPLICATE KEY UPDATE last_seen=?, times_seen=VALUES(times_seen)+1`,
 		chain.Fingerprint,
 		chain.Certs,
-		now,
-		now,
 		chain.NssValidity,
 		chain.MsValidity,
 		chain.TransValidity,
@@ -65,7 +63,7 @@ func (db *Database) AddCertificate(cert *Certificate) error {
 		   subject_key_identifier, authority_key_identifier, serial, common_name, country, province, locality,
 			 organization, organizational_unit, issuer_common_name, times_seen, first_seen, last_seen
 		 )
-		 VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON DUPLICATE KEY UPDATE last_seen=?, times_seen=VALUES(times_seen)+1`,
 		// And now the long journey to the end of this insert begins, fraught with
 		// terror and intrigue...
@@ -116,7 +114,7 @@ func (db *Database) AddRawCertificate(rawCert *RawCertificate) error {
 func (db *Database) AddPublicKey(key *Key) error {
 	now := time.Now()
 	_, err := db.m.Exec(
-		`INSERT INTO keys (
+		`INSERT INTO public_keys (
 			fingerprint, type, valid, rsa_modulus_size, rsa_modulus, rsa_exponent,
 			dsa_p, dsa_q, dsa_g, dsa_y, ecdsa_curve, ecdsa_x, ecdsa_y, times_seen, first_seen, last_seen
 		)

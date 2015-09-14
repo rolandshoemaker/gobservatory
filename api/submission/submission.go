@@ -154,8 +154,9 @@ func (a *API) ParseSubmissions(wg *sync.WaitGroup) error {
 	return nil
 }
 
-func middleOfValdity(cert *x509.Certificate) (time.Time, error) {
-	return time.Time{}, nil
+func middleOfValdity(cert *x509.Certificate) time.Time {
+	validityPeriod := cert.NotAfter.Sub(cert.NotBefore)
+	return cert.NotBefore.Add(validityPeriod / 2)
 }
 
 func (a *API) generateChainMeta(certs []*x509.Certificate) (*db.CertificateChainMeta, bool, error) {
@@ -167,10 +168,7 @@ func (a *API) generateChainMeta(certs []*x509.Certificate) (*db.CertificateChain
 	}
 
 	cert := certs[0]
-	middle, err := middleOfValdity(cert)
-	if err != nil {
-		return nil, false, err
-	}
+	middle := middleOfValdity(cert)
 
 	// Check NSS validity of certificate
 	nssChains, err := cert.Verify(x509.VerifyOptions{

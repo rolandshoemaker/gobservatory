@@ -61,6 +61,7 @@ CREATE TABLE `certificates` (
   `valid` tinyint(1) NOT NULL,
   `version` tinyint(1) NOT NULL,
   `root` tinyint(1) NOT NULL,
+  `expired` tinyint(1) NOT NULL,
   `basic_constraints` tinyint(1) NOT NULL,
   `name_constraints_critical` tinyint(1) NOT NULL,
   `max_path_len` int NOT NULL,
@@ -101,7 +102,7 @@ CREATE TABLE `raw_certificates` (
 --   Contains public keys (RSA/DSA/ECDSA) contained in certificates
 --
 
-CREATE TABLE `keys` (
+CREATE TABLE `public_keys` (
   `fingerprint` binary(36) NOT NULL,
   `type` tinyint(1) NOT NULL,
   `valid` tinyint(1) NOT NULL,
@@ -122,7 +123,7 @@ CREATE TABLE `keys` (
   `times_seen` bigint(20) NOT NULL,
   `first_seen` datetime NOT NULL,
   `last_seen` datetime NOT NULL,
-  PRIMARY KEY (`fingerprint`),
+  PRIMARY KEY (`fingerprint`)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
 -- -- RSA public keys
