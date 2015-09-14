@@ -748,13 +748,13 @@
           "timeShift": null,
           "targets": [
             {
-              "target": "alias(sumSeries(stats.timers.gobservatory.submission.parsing.db.insert-latency.*.mean), 'INSERT sum avg')"
+              "target": "alias(sumSeries(stats.timers.gobservatory.submission.parsing.db.insert-latency.*.mean), 'INSERT')"
             },
             {
-              "target": "alias(sumSeries(stats.timers.gobservatory.submission.parsing.db.insert-update-latency.*.mean), 'INSERT/UPDATE sum avg')"
+              "target": "alias(sumSeries(stats.timers.gobservatory.submission.parsing.db.insert-update-latency.*.mean), 'INSERT/UPDATE')"
             },
             {
-              "target": "alias(sumSeries(stats.timers.gobservatory.submission.parsing.db.select-latency.*.mean), 'SELECT sum avg')"
+              "target": "alias(sumSeries(stats.timers.gobservatory.submission.parsing.db.select-latency.*.mean), 'SELECT')"
             }
           ],
           "aliasColors": {},
@@ -999,5 +999,5 @@
   },
   "refresh": false,
   "schemaVersion": 6,
-  "version": 13
+  "version": 15
 }
