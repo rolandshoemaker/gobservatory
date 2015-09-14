@@ -33,9 +33,12 @@ type RevokedCertificate struct {
 type Certificate struct {
 	Fingerprint             []byte    `db:"fingerprint"`
 	KeyFingerprint          []byte    `db:"key_fingerprint"`
+	PublicKeyAlg            uint8     `db:"key_alg"`
+	Size                    int       `db:"size"`
 	Valid                   bool      `db:"valid"`
 	CertVersion             uint8     `db:"version"`
 	Root                    bool      `db:"root"`
+	Expired                 bool      `db:"expired"`
 	BasicConstraints        bool      `db:"basic_constraints"`
 	NameConstraintsCritical bool      `db:"name_constraints_critical"`
 	MaxPathLen              int       `db:"max_path_len"`
@@ -44,11 +47,15 @@ type Certificate struct {
 	Signature               []byte    `db:"signature"`
 	NotBefore               time.Time `db:"not_before"`
 	NotAfter                time.Time `db:"not_after"`
-	Revoked                 bool      `db:"revoked"`
 	SubjectKeyIdentifier    []byte    `db:"subject_key_identifier"`
 	AuthorityKeyIdentifier  []byte    `db:"authority_key_identifier"`
 	KeyUsage                uint8     `db:"key_usage"`
 	CommonName              string    `db:"common_name"`
+	Country                 string    `db:"country"`
+	Province                string    `db:"province"`
+	Locality                string    `db:"locality"`
+	Organization            string    `db:"organization"`
+	OrganizationalUnit      string    `db:"organizational_unit"`
 	Serial                  string    `db:"serial"`
 	IssuerCommonName        string    `db:"issuer_common_name"`
 
@@ -61,33 +68,56 @@ type RawCertificate struct {
 	DER                    []byte `db:"der"`
 }
 
-// RSAKey describes a RSA public key from a submitted certificate
-type RSAKey struct {
-	CertificateFingerprint []byte `db:"certificate_fingerprint"`
-	KeyFingerprint         []byte `db:"key_fingerprint"`
-	ModulusSize            int    `db:"modulus_size"`
-	Modulus                []byte `db:"modulus"`
-	Exponent               int    `db:"exponent"`
+// Key describes a RSA/DSA/ECDSA public key used in certificates
+type Key struct {
+	Fingerprint []byte `db:"fingerprint"`
+	Type        uint8  `db:"type"`
+	Valid       bool   `db:"valid"`
+	// RSA parameters
+	RSAModulusSize int64  `db:"rsa_modulus_size"`
+	RSAModulus     []byte `db:"rsa_modulus"`
+	RSAExponent    int64  `db:"rsa_exponent"`
+	// DSA parameters
+	DSAP []byte `db:"dsa_p"`
+	DSAQ []byte `db:"dsa_q"`
+	DSAG []byte `db:"dsa_g"`
+	DSAY []byte `db:"dsa_y"`
+	// ECDSA parameters
+	ECDSACurve string `db:"ecdsa_curve"`
+	ECDSAX     []byte `db:"ecdsa_x"`
+	ECDSAY     []byte `db:"ecdsa_y"`
 }
 
-// DSAKey describes a DSA public key from a submitted certificate
-type DSAKey struct {
-	CertificateFingerprint []byte `db:"certificate_fingerprint"`
-	KeyFingerprint         []byte `db:"key_fingerprint"`
-	P                      []byte `db:"p"`
-	Q                      []byte `db:"q"`
-	G                      []byte `db:"g"`
-	Y                      []byte `db:"y"`
-}
-
-// ECDSAKey describes a ECC public key from a submitted certificate
-type ECDSAKey struct {
-	CertificateFingerprint []byte `db:"certificate_fingerprint"`
-	KeyFingerprint         []byte `db:"key_fingerprint"`
-	Curve                  string `db:"curve"`
-	X                      []byte `db:"x"`
-	Y                      []byte `db:"y"`
-}
+// // RSAKey describes a RSA public key from a submitted certificate
+// type RSAKey struct {
+// 	CertificateFingerprint []byte `db:"certificate_fingerprint"`
+// 	KeyFingerprint         []byte `db:"key_fingerprint"`
+// 	ModulusSize            int    `db:"modulus_size"`
+// 	Modulus                []byte `db:"modulus"`
+// 	Exponent               int    `db:"exponent"`
+// 	Valid                  bool   `db:"valid"`
+// }
+//
+// // DSAKey describes a DSA public key from a submitted certificate
+// type DSAKey struct {
+// 	CertificateFingerprint []byte `db:"certificate_fingerprint"`
+// 	KeyFingerprint         []byte `db:"key_fingerprint"`
+// 	P                      []byte `db:"p"`
+// 	Q                      []byte `db:"q"`
+// 	G                      []byte `db:"g"`
+// 	Y                      []byte `db:"y"`
+// 	Valid                  bool   `db:"valid"`
+// }
+//
+// // ECDSAKey describes a ECC public key from a submitted certificate
+// type ECDSAKey struct {
+// 	CertificateFingerprint []byte `db:"certificate_fingerprint"`
+// 	KeyFingerprint         []byte `db:"key_fingerprint"`
+// 	Curve                  string `db:"curve"`
+// 	X                      []byte `db:"x"`
+// 	Y                      []byte `db:"y"`
+// 	Valid                  bool   `db:"valid"`
+// }
 
 // RawKey describes the raw form of a submitted certificate
 type RawKey struct {
@@ -113,36 +143,6 @@ type IPAddress struct {
 type EmailAddress struct {
 	CertificateFingerprint []byte `db:"certificate_fingerprint"`
 	Email                  string `db:"email"`
-}
-
-// Country describes a subject country tkane from a submitted certificate
-type Country struct {
-	CertificateFingerprint []byte `db:"certificate_fingerprint"`
-	Country                string `db:"country"`
-}
-
-// Organization describes a subject organization taken from a submitted certificate
-type Organization struct {
-	CertificateFingerprint []byte `db:"certificate_fingerprint"`
-	Organization           string `db:"organization"`
-}
-
-// OrganizationalUnit describes a subject organizational unit taken from a submitted certificate
-type OrganizationalUnit struct {
-	CertificateFingerprint []byte `db:"certificate_fingerprint"`
-	OrganizationalUnit     string `db:"organizational_unit"`
-}
-
-// Locality describes a subject locality taken from a submitted certificate
-type Locality struct {
-	CertificateFingerprint []byte `db:"certificate_fingerprint"`
-	Locality               string `db:"locality"`
-}
-
-// Province describes a subject province taken from a submitted certificate
-type Province struct {
-	CertificateFingerprint []byte `db:"certificate_fingerprint"`
-	Province               string `db:"province"`
 }
 
 // SubjectExtension describes a subject extension taken from a submitted certificate

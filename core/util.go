@@ -38,8 +38,6 @@ var ParsedSubjectOIDs = map[string]bool{
 	"2.5.4.5":  true, // Serial number
 	"2.5.4.7":  true, // Locality
 	"2.5.4.8":  true, // Province
-	"2.5.4.9":  true, // Street address
-	"2.5.4.17": true, // Postal code
 }
 
 // SignatureAlgorithms maps x509.SignatureAlgorithm's to their names

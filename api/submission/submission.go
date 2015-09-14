@@ -154,19 +154,30 @@ func (a *API) ParseSubmissions(wg *sync.WaitGroup) error {
 	return nil
 }
 
-func (a *API) generateChainMeta(certs []*x509.Certificate) (*db.CertificateChainMeta, bool) {
+func middleOfValdity(cert *x509.Certificate) (time.Time, error) {
+	return time.Time{}, nil
+}
+
+func (a *API) generateChainMeta(certs []*x509.Certificate) (*db.CertificateChainMeta, bool, error) {
 	// XXX: Debugging statements
 	fmt.Println("GENERATING CHAINS!")
 	intermediatePool := x509.NewCertPool()
 	for _, cert := range certs[1:] {
 		intermediatePool.AddCert(cert)
 	}
+
 	cert := certs[0]
+	middle, err := middleOfValdity(cert)
+	if err != nil {
+		return nil, false, err
+	}
+
 	// Check NSS validity of certificate
 	nssChains, err := cert.Verify(x509.VerifyOptions{
 		Intermediates: intermediatePool,
 		Roots:         a.nssPool,
 		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+		CurrentTime:   middle,
 	})
 	if err != nil {
 		// XXX: Debugging statements
@@ -177,6 +188,7 @@ func (a *API) generateChainMeta(certs []*x509.Certificate) (*db.CertificateChain
 		Intermediates: intermediatePool,
 		Roots:         a.msPool,
 		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+		CurrentTime:   middle,
 	})
 	if err != nil {
 		// XXX: Debugging statements
@@ -210,7 +222,7 @@ func (a *API) generateChainMeta(certs []*x509.Certificate) (*db.CertificateChain
 			MsValidity:  msValid,
 		}
 		a.stats.Inc("submission.parsing.chains.valid", 1, 1.0)
-		return chain, true
+		return chain, true, nil
 	}
 
 	// Check for trans-validity
@@ -218,6 +230,7 @@ func (a *API) generateChainMeta(certs []*x509.Certificate) (*db.CertificateChain
 	transChains, err := certs[0].Verify(x509.VerifyOptions{
 		Intermediates: intermediatePool,
 		Roots:         a.transPool,
+		CurrentTime:   middle,
 	})
 	if err != nil {
 		fmt.Println(err)
@@ -234,7 +247,7 @@ func (a *API) generateChainMeta(certs []*x509.Certificate) (*db.CertificateChain
 		Fingerprint:   fingerprint[:],
 		Validity:      trans,
 		TransValidity: trans,
-	}, trans
+	}, trans, nil
 }
 
 func (a *API) addCertificate(chainMeta *db.CertificateChainMeta, cert *x509.Certificate, valid, leaf bool, asnNum int, now time.Time, serverIP net.IP) error {
@@ -242,26 +255,21 @@ func (a *API) addCertificate(chainMeta *db.CertificateChainMeta, cert *x509.Cert
 	// decomposition
 	fingerprint := core.Fingerprint(cert.Raw)
 
-	if exists, err := a.db.CertificateExists(fingerprint); err == nil && exists {
-		a.stats.Inc("submission.parsing.certificates.previously-seen", 1.0, 1)
-		return nil
-	} else if err != nil {
-		return err
-	}
-
 	keyDER, err := x509.MarshalPKIXPublicKey(cert.PublicKey)
 	if err != nil {
 		return err
 	}
 	keyFingerprint := core.Fingerprint(keyDER)
 
-	// Decompsoe certificate into all the different bits we want
-	err = a.db.AddCertificate(&db.Certificate{
+	certModel := &db.Certificate{
+		Size:                   len(cert.Raw),
 		Fingerprint:            fingerprint,
 		KeyFingerprint:         keyFingerprint,
+		PublicKeyAlg:           uint8(cert.PublicKeyAlgorithm),
 		Valid:                  valid,
 		CertVersion:            uint8(cert.Version),
 		Root:                   cert.IsCA,
+		Expired:                time.Now().After(cert.NotAfter),
 		BasicConstraints:       cert.BasicConstraintsValid,
 		MaxPathLen:             cert.MaxPathLen,
 		MaxPathLenZero:         cert.MaxPathLenZero,
@@ -269,26 +277,40 @@ func (a *API) addCertificate(chainMeta *db.CertificateChainMeta, cert *x509.Cert
 		Signature:              cert.Signature,
 		NotBefore:              cert.NotBefore,
 		NotAfter:               cert.NotAfter,
-		Revoked:                false, // XXX: Without doing OCSP/CRL checks this'll have to do for now
 		SubjectKeyIdentifier:   cert.SubjectKeyId,
 		AuthorityKeyIdentifier: cert.AuthorityKeyId,
 		KeyUsage:               uint8(cert.KeyUsage),
 		CommonName:             cert.Subject.CommonName,
 		Serial:                 fmt.Sprintf("%X", cert.SerialNumber),
 		IssuerCommonName:       cert.Issuer.CommonName,
-	})
+		Country:                strings.Join(cert.Subject.Country, "; "),
+		Province:               strings.Join(cert.Subject.Province, "; "),
+		Locality:               strings.Join(cert.Subject.Locality, "; "),
+		Organization:           strings.Join(cert.Subject.Organization, "; "),
+		OrganizationalUnit:     strings.Join(cert.Subject.OrganizationalUnit, "; "),
+	}
+
+	exists, err := a.db.CertificateExists(fingerprint)
 	if err != nil {
 		return err
+	}
+	// Decompsoe certificate into all the different bits we want
+	err = a.db.AddCertificate(certModel)
+	if err != nil {
+		return err
+	}
+	if exists {
+		a.stats.Inc("submission.parsing.certificates.previously-seen", 1.0, 1)
+		return nil
 	}
 
 	if time.Now().After(cert.NotAfter) {
 		a.stats.Inc("submission.parsing.certificates.expired", 1, 1.0)
+	}
+	if valid {
+		a.stats.Inc("submission.parsing.certificates.valid", 1, 1.0)
 	} else {
-		if valid {
-			a.stats.Inc("submission.parsing.certificates.valid", 1, 1.0)
-		} else {
-			a.stats.Inc("submission.parsing.certificates.invalid", 1, 1.0)
-		}
+		a.stats.Inc("submission.parsing.certificates.invalid", 1, 1.0)
 	}
 
 	if cert.IsCA && valid {
@@ -314,48 +336,48 @@ func (a *API) addCertificate(chainMeta *db.CertificateChainMeta, cert *x509.Cert
 	}
 
 	// Public key
-	if exists, err := a.db.KeyExists(keyFingerprint); err == nil && !exists {
+	keyExists, err := a.db.KeyExists(keyFingerprint)
+	if err != nil {
+		return err
+	}
+	key := &db.Key{
+		Fingerprint: keyFingerprint,
+		Valid:       valid,
+	}
+	switch t := cert.PublicKey.(type) {
+	case *rsa.PublicKey:
+		a.stats.Inc("submission.parsing.certificates.key-types.RSA", 1, 1.0)
+		key.Type = uint8(x509.RSA)
+		key.RSAModulusSize = int64(t.N.BitLen())
+		key.RSAModulus = t.N.Bytes()
+		key.RSAExponent = int64(t.E)
+	case *dsa.PublicKey:
+		a.stats.Inc("submission.parsing.certificates.key-types.DSA", 1, 1.0)
+		key.Type = uint8(x509.DSA)
+		key.DSAP = t.P.Bytes()
+		key.DSAQ = t.Q.Bytes()
+		key.DSAG = t.G.Bytes()
+		key.DSAY = t.Y.Bytes()
+	case *ecdsa.PublicKey:
+		a.stats.Inc("submission.parsing.certificates.key-types.ECDSA", 1, 1.0)
+		key.Type = uint8(x509.ECDSA)
+		key.ECDSACurve = t.Params().Name
+		key.ECDSAX = t.X.Bytes()
+		key.ECDSAY = t.Y.Bytes()
+	}
+	err = a.db.AddPublicKey(key)
+	if err != nil {
+		return err
+	}
+	if !keyExists {
 		err = a.db.AddRawKey(&db.RawKey{
 			KeyFingerprint: keyFingerprint,
 			DER:            keyDER,
 		})
 		if err != nil {
-			// um... return? this is confusing now...
-			return err
+			// Continue...
+			fmt.Println(err)
 		}
-		switch t := cert.PublicKey.(type) {
-		case *rsa.PublicKey:
-			a.stats.Inc("submission.parsing.certificates.key-types.RSA", 1, 1.0)
-			err = a.db.AddRSAKey(&db.RSAKey{
-				CertificateFingerprint: fingerprint,
-				KeyFingerprint:         keyFingerprint,
-				ModulusSize:            t.N.BitLen(),
-				Modulus:                t.N.Bytes(),
-				Exponent:               t.E,
-			})
-		case *dsa.PublicKey:
-			a.stats.Inc("submission.parsing.certificates.key-types.DSA", 1, 1.0)
-			err = a.db.AddDSAKey(&db.DSAKey{
-				CertificateFingerprint: fingerprint,
-				KeyFingerprint:         keyFingerprint,
-			})
-		case *ecdsa.PublicKey:
-			a.stats.Inc("submission.parsing.certificates.key-types.ECDSA", 1, 1.0)
-			err = a.db.AddECDSAKey(&db.ECDSAKey{
-				CertificateFingerprint: fingerprint,
-				KeyFingerprint:         keyFingerprint,
-				Curve:                  t.Params().Name,
-				X:                      t.X.Bytes(),
-				Y:                      t.Y.Bytes(),
-			})
-			if err != nil {
-				// Continue
-				fmt.Println(err)
-			}
-		}
-	} else if err != nil {
-		// Continue??
-		fmt.Println(err)
 	}
 
 	// Names sections
@@ -392,32 +414,7 @@ func (a *API) addCertificate(chainMeta *db.CertificateChainMeta, cert *x509.Cert
 		fmt.Println(err)
 	}
 
-	// Subject sections
-	err = a.db.AddCountries(fingerprint, cert.Subject.Country)
-	if err != nil {
-		// Continue
-		fmt.Println(err)
-	}
-	err = a.db.AddOrganizations(fingerprint, cert.Subject.Organization)
-	if err != nil {
-		// Continue
-		fmt.Println(err)
-	}
-	err = a.db.AddOrganizationalUnits(fingerprint, cert.Subject.OrganizationalUnit)
-	if err != nil {
-		// Continue
-		fmt.Println(err)
-	}
-	err = a.db.AddLocalities(fingerprint, cert.Subject.Locality)
-	if err != nil {
-		// Continue
-		fmt.Println(err)
-	}
-	err = a.db.AddProvinces(fingerprint, cert.Subject.Province)
-	if err != nil {
-		// Continue
-		fmt.Println(err)
-	}
+	// Extra subject sections
 	err = a.db.AddSubjectExtensions(fingerprint, cert.Subject.Names)
 	if err != nil {
 		// Continue
@@ -458,9 +455,12 @@ func (a *API) addCertificates(certs []*x509.Certificate, asnNum int, serverIP ne
 	// XXX: Debugging statements
 	fmt.Printf("ADDING [%d] CERTIFICATES!\n", len(certs))
 
-	chainMeta, valid := a.generateChainMeta(certs)
+	chainMeta, valid, err := a.generateChainMeta(certs)
+	if err != nil {
+		return err
+	}
 
-	err := a.addChainMeta(chainMeta)
+	err = a.addChainMeta(chainMeta)
 	if err != nil {
 		return err
 	}
